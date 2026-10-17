@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "APP_MOVIL_SENTINEL_FACE",
+    "slug": "APP_MOVIL_SENTINEL_FACE",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "appmovilsentinelface",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    },
+    "splash": {
+      "image": "./assets/images/facial_scan_bg.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": ["expo-router", "expo-secure-store", "expo-web-browser"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
