@@ -183,12 +183,4 @@ class HomeDashboardStats(Resource):
     def get(self):
         stats = home_controller.get_dashboard_stats()
         # provide aliases so both new and existing frontends work seamlessly
-        return {
-            **stats,
-            "hogares": stats.get("homes"),
-            "personas": stats.get("residents"),
-            "accesos": stats.get("accesses"),
-            "alertas": stats.get("alerts"),
-            "grafica_7_dias": stats.get("chart_7_days"),
-            "ultimas_alertas": stats.get("recent_alerts"),
-        }
+        return home_controller.get_dashboard_stats()

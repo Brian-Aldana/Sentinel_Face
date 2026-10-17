@@ -22,6 +22,7 @@ from api.routes.alert_ns     import ns as alert_ns
 from api.routes.audit_ns     import ns as audit_ns
 from api.routes.recognize_ns import ns as recognize_ns
 from api.routes.home_ns      import ns as home_ns
+from api.routes.hogar_ns     import ns as hogar_ns
 
 api = Api(
     title="Sentinel Face API",
@@ -40,6 +41,7 @@ api.add_namespace(alert_ns)
 api.add_namespace(audit_ns)
 api.add_namespace(recognize_ns)
 api.add_namespace(home_ns)
+api.add_namespace(hogar_ns)
 
 import jwt
 from flask_jwt_extended.exceptions import JWTExtendedException, NoAuthorizationError

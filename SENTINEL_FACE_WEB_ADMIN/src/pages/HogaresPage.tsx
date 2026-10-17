@@ -120,7 +120,7 @@ export const HogaresPage: React.FC = () => {
 
     try {
       await hogarService.setHogarStatus(
-        selectedHogar.hogar_id,
+        (selectedHogar.home_id || selectedHogar.hogar_id)!,
         newStatus,
         motivoSuspension
       );
@@ -141,7 +141,8 @@ export const HogaresPage: React.FC = () => {
     setIsHistorialOpen(true);
     setHistorialLoading(true);
     try {
-      const items = await hogarService.getHogarHistorial(hogar.hogar_id);
+      const homeId = (hogar.home_id || hogar.hogar_id)!;
+      const items = await hogarService.getHogarHistorial(homeId);
       setHistorialItems(items);
     } catch (err) {
       console.error('Error al cargar historial de estados:', err);
@@ -153,21 +154,32 @@ export const HogaresPage: React.FC = () => {
 
   // Métricas agregadas de los hogares
   const totalHogares = hogares.length;
-  const activosCount = hogares.filter((h) => h.estado_servicio === 'ACTIVO').length;
-  const suspendidosCount = hogares.filter((h) => h.estado_servicio === 'SUSPENDIDO').length;
-  const denegadosCount = hogares.filter((h) => h.estado_servicio === 'DENEGADO').length;
-  const pruebaCount = hogares.filter((h) => h.estado_servicio === 'PRUEBA').length;
+  const activosCount = hogares.filter((h) => h.estado_servicio === 'ACTIVO' || h.service_status === 'ACTIVE').length;
+  const suspendidosCount = hogares.filter((h) => h.estado_servicio === 'SUSPENDIDO' || h.service_status === 'SUSPENDED').length;
+  const denegadosCount = hogares.filter((h) => h.estado_servicio === 'DENEGADO' || h.service_status === 'DENIED').length;
+  const pruebaCount = hogares.filter((h) => h.estado_servicio === 'PRUEBA' || h.service_status === 'TRIAL').length;
 
   const filteredHogares = hogares.filter((h) => {
     const q = search.toLowerCase();
-    const matchesSearch =
-      h.nombre_titular.toLowerCase().includes(q) ||
-      h.codigo_hogar.toLowerCase().includes(q) ||
-      (h.direccion && h.direccion.toLowerCase().includes(q)) ||
-      h.email_contacto.toLowerCase().includes(q);
+    const nombre = (h.nombre_titular || h.owner_name || '').toLowerCase();
+    const codigo = (h.codigo_hogar || h.home_code || '').toLowerCase();
+    const direccion = (h.direccion || h.address || '').toLowerCase();
+    const email = (h.email_contacto || h.contact_email || '').toLowerCase();
 
+    const matchesSearch =
+      nombre.includes(q) ||
+      codigo.includes(q) ||
+      direccion.includes(q) ||
+      email.includes(q);
+
+    const status = h.service_status || h.estado_servicio;
     const matchesFilter =
-      filterStatus === 'TODOS' || h.estado_servicio === filterStatus;
+      filterStatus === 'TODOS' ||
+      status === filterStatus ||
+      (filterStatus === 'ACTIVO' && (status === 'ACTIVE' || status === 'ACTIVO')) ||
+      (filterStatus === 'SUSPENDIDO' && (status === 'SUSPENDED' || status === 'SUSPENDIDO')) ||
+      (filterStatus === 'DENEGADO' && (status === 'DENIED' || status === 'DENEGADO')) ||
+      (filterStatus === 'PRUEBA' && (status === 'TRIAL' || status === 'PRUEBA'));
 
     return matchesSearch && matchesFilter;
   });
@@ -287,84 +299,98 @@ export const HogaresPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {filteredHogares.map((hogar) => (
-                  <tr
-                    key={hogar.hogar_id}
-                    className="hover:bg-slate-800/30 transition-colors group"
-                  >
-                    {/* Código / Titular */}
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center font-mono font-bold text-xs shrink-0">
-                          {hogar.codigo_hogar.replace('HOG-', '')}
+                {filteredHogares.map((hogar) => {
+                  const homeId = hogar.home_id || hogar.hogar_id || 0;
+                  const homeCode = hogar.home_code || hogar.codigo_hogar || '';
+                  const ownerName = hogar.owner_name || hogar.nombre_titular || '';
+                  const address = hogar.address || hogar.direccion || 'Sin dirección registrada';
+                  const email = hogar.contact_email || hogar.email_contacto || '';
+                  const serviceStatus = hogar.service_status || hogar.estado_servicio || 'ACTIVE';
+                  const suspensionReason = hogar.suspension_reason || hogar.motivo_suspension;
+                  const totalResidents = hogar.total_residents ?? hogar.total_personas ?? 0;
+                  const maxResidents = hogar.max_residents ?? hogar.limite_personas ?? 10;
+                  const maxCameras = hogar.max_cameras ?? hogar.limite_camaras ?? 2;
+                  const totalAccesses = hogar.total_accesos ?? hogar.total_accesses ?? 0;
+                  const activeAlerts = hogar.active_alerts ?? hogar.alertas_activas ?? 0;
+
+                  return (
+                    <tr
+                      key={homeId}
+                      className="hover:bg-slate-800/30 transition-colors group"
+                    >
+                      {/* Código / Titular */}
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center font-mono font-bold text-xs shrink-0">
+                            {homeCode.replace('HOG-', '')}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-white block text-sm">
+                              {ownerName}
+                            </span>
+                            <span className="text-[11px] text-cyan-400 font-mono">
+                              {homeCode}
+                            </span>
+                          </div>
                         </div>
+                      </td>
+
+                      {/* Ubicación & Contacto */}
+                      <td className="py-4 px-6 space-y-1">
+                        <div className="flex items-center gap-1.5 text-slate-300">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span className="truncate max-w-[200px]">
+                            {address}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+                          <Mail className="w-3 h-3 text-slate-500 shrink-0" />
+                          <span>{email}</span>
+                        </div>
+                      </td>
+
+                      {/* Estado del Servicio */}
+                      <td className="py-4 px-6">
                         <div>
-                          <span className="font-semibold text-white block text-sm">
-                            {hogar.nombre_titular}
-                          </span>
-                          <span className="text-[11px] text-cyan-400 font-mono">
-                            {hogar.codigo_hogar}
-                          </span>
+                          <StatusBadge status={serviceStatus} />
+                          {suspensionReason && (
+                            <p
+                              className="text-[10px] text-amber-400/90 mt-1 max-w-[180px] truncate"
+                              title={suspensionReason}
+                            >
+                              Motivo: {suspensionReason}
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Ubicación & Contacto */}
-                    <td className="py-4 px-6 space-y-1">
-                      <div className="flex items-center gap-1.5 text-slate-300">
-                        <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <span className="truncate max-w-[200px]">
-                          {hogar.direccion || 'Sin dirección registrada'}
+                      {/* Capacidad */}
+                      <td className="py-4 px-6">
+                        <div className="text-slate-300">
+                          <span className="font-semibold text-white">{totalResidents}</span>
+                          <span className="text-slate-500"> / {maxResidents} autorizadas</span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 block">
+                          Hasta {maxCameras} cámaras
                         </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-                        <Mail className="w-3 h-3 text-slate-500 shrink-0" />
-                        <span>{hogar.email_contacto}</span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Estado del Servicio */}
-                    <td className="py-4 px-6">
-                      <div>
-                        <StatusBadge status={hogar.estado_servicio} />
-                        {hogar.motivo_suspension && (
-                          <p
-                            className="text-[10px] text-amber-400/90 mt-1 max-w-[180px] truncate"
-                            title={hogar.motivo_suspension}
-                          >
-                            Motivo: {hogar.motivo_suspension}
-                          </p>
+                      {/* Actividad */}
+                      <td className="py-4 px-6">
+                        <div className="text-slate-300">
+                          <span className="font-medium text-white">{totalAccesses}</span> accesos
+                        </div>
+                        {activeAlerts > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-rose-400 font-semibold mt-0.5">
+                            <ShieldAlert className="w-3 h-3" />
+                            {activeAlerts} alertas
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-500">Sin alertas</span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Capacidad */}
-                    <td className="py-4 px-6">
-                      <div className="text-slate-300">
-                        <span className="font-semibold text-white">{hogar.total_personas || 0}</span>
-                        <span className="text-slate-500"> / {hogar.limite_personas} autorizadas</span>
-                      </div>
-                      <span className="text-[11px] text-slate-500 block">
-                        Hasta {hogar.limite_camaras} cámaras
-                      </span>
-                    </td>
-
-                    {/* Actividad */}
-                    <td className="py-4 px-6">
-                      <div className="text-slate-300">
-                        <span className="font-medium text-white">{hogar.total_accesos || 0}</span> accesos
-                      </div>
-                      {hogar.alertas_activas && hogar.alertas_activas > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-rose-400 font-semibold mt-0.5">
-                          <ShieldAlert className="w-3 h-3" />
-                          {hogar.alertas_activas} alertas
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-slate-500">Sin alertas</span>
-                      )}
-                    </td>
-
-                    {/* Acciones de Proveedor */}
+                      {/* Acciones de Proveedor */}
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {/* Botón Ver Historial */}
@@ -378,7 +404,7 @@ export const HogaresPage: React.FC = () => {
                         </button>
 
                         {/* Botón Cambiar Estado */}
-                        {hogar.estado_servicio === 'ACTIVO' ? (
+                        {serviceStatus === 'ACTIVE' || serviceStatus === 'ACTIVO' ? (
                           <button
                             onClick={() => handleOpenStatusModal(hogar, 'SUSPENDIDO')}
                             className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 font-medium transition-colors flex items-center gap-1"
@@ -408,7 +434,8 @@ export const HogaresPage: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

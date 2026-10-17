@@ -32,6 +32,7 @@ export interface Home {
   total_personas?: number;
   alertas_activas?: number;
   total_accesos?: number;
+  total_accesses?: number;
 }
 
 export type Hogar = Home;

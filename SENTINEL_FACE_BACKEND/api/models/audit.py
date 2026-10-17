@@ -38,6 +38,9 @@ def find_all(home_id: int = None, limit=50, page=1):
                     r["detail"] = json.loads(r["detail"])
                 except Exception:
                     pass
+            r["usuario_name"] = r.get("user_name")
+            r["codigo_hogar"] = r.get("home_code")
+            r["nombre_titular"] = r.get("owner_name")
         return {
             "items": rows,
             "total": total,

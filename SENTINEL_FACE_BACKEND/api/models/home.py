@@ -15,6 +15,26 @@ def _clean_dict(d: dict) -> dict:
     return {k: _clean_val(v) for k, v in d.items()}
 
 
+def _enrich_home_dict(clean_r: dict) -> dict:
+    if not clean_r:
+        return clean_r
+    clean_r["is_active"] = clean_r.get("service_status") in ("ACTIVE", "TRIAL")
+    clean_r["hogar_id"] = clean_r.get("home_id")
+    clean_r["codigo_hogar"] = clean_r.get("home_code")
+    clean_r["nombre_titular"] = clean_r.get("owner_name")
+    clean_r["direccion"] = clean_r.get("address")
+    clean_r["telefono"] = clean_r.get("phone")
+    clean_r["email_contacto"] = clean_r.get("contact_email")
+    clean_r["estado_servicio"] = clean_r.get("service_status")
+    clean_r["motivo_suspension"] = clean_r.get("suspension_reason")
+    clean_r["limite_personas"] = clean_r.get("max_residents")
+    clean_r["limite_camaras"] = clean_r.get("max_cameras")
+    clean_r["total_personas"] = clean_r.get("total_residents", 0)
+    clean_r["alertas_activas"] = clean_r.get("active_alerts", 0)
+    clean_r["total_accesos"] = clean_r.get("total_accesses", 0)
+    return clean_r
+
+
 def find_all(service_status: str = None):
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
@@ -28,7 +48,9 @@ def find_all(service_status: str = None):
                    h.notes, h.created_at, h.updated_at,
                    COUNT(DISTINCT r.resident_id) AS total_residents,
                    (SELECT COUNT(*) FROM security_alerts sa
-                    WHERE sa.home_id = h.home_id AND sa.resolved = 0) AS active_alerts
+                    WHERE sa.home_id = h.home_id AND sa.resolved = 0) AS active_alerts,
+                   (SELECT COUNT(*) FROM access_logs al
+                    WHERE al.home_id = h.home_id) AS total_accesses
             FROM homes h
             LEFT JOIN residents r ON h.home_id = r.home_id AND r.is_active = 1
             {where}
@@ -39,8 +61,7 @@ def find_all(service_status: str = None):
         result = []
         for r in rows:
             clean_r = _clean_dict(r)
-            clean_r["is_active"] = clean_r["service_status"] in ("ACTIVE", "TRIAL")
-            result.append(clean_r)
+            result.append(_enrich_home_dict(clean_r))
         return result
     finally:
         cursor.close()
@@ -66,8 +87,7 @@ def find_by_id(home_id: int):
         if not row:
             return None
         clean_row = _clean_dict(row)
-        clean_row["is_active"] = clean_row["service_status"] in ("ACTIVE", "TRIAL")
-        return clean_row
+        return _enrich_home_dict(clean_row)
     finally:
         cursor.close()
         conn.close()
@@ -83,6 +103,9 @@ def find_by_code(home_code: str):
     finally:
         cursor.close()
         conn.close()
+
+
+find_by_codigo = find_by_code
 
 
 def is_service_active(home_id: int) -> tuple[bool, str]:
@@ -221,6 +244,9 @@ def get_history(home_id: int):
         conn.close()
 
 
+get_historial = get_history
+
+
 def get_dashboard_stats():
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
@@ -290,13 +316,68 @@ def get_dashboard_stats():
         """)
         recent_alerts = [_clean_dict(r) for r in cursor.fetchall()]
 
+        chart_enriched = [
+            {
+                **item,
+                "fecha": item.get("date"),
+                "concedidos": item.get("granted", 0),
+                "denegados": item.get("denied", 0),
+            }
+            for item in chart_7_days
+        ]
+        recent_alerts_enriched = [
+            {
+                **al,
+                "codigo_hogar": al.get("home_code"),
+                "nombre_titular": al.get("owner_name"),
+            }
+            for al in recent_alerts
+        ]
+
+        hogares_dict = {
+            "total_hogares": homes_stats.get("total_homes", 0),
+            "hogares_activos": homes_stats.get("active_homes", 0),
+            "hogares_suspendidos": homes_stats.get("suspended_homes", 0),
+            "hogares_denegados": homes_stats.get("denied_homes", 0),
+            "hogares_prueba": homes_stats.get("trial_homes", 0),
+            **homes_stats,
+        }
+        personas_dict = {
+            "total_personas_registradas": residents_stats.get("total_residents", 0),
+            "personas_con_biometria": residents_stats.get("active_residents", 0),
+            **residents_stats,
+        }
+        accesos_dict = {
+            "total_accesos_historico": access_stats.get("total_history_accesses", 0),
+            "accesos_hoy": access_stats.get("accesses_today", 0),
+            "accesos_concedidos_hoy": access_stats.get("accesses_granted_today", 0),
+            "accesos_denegados_hoy": access_stats.get("accesses_denied_today", 0),
+            "intentos_spoofing_hoy": access_stats.get("spoofing_attempts_today", 0),
+            **access_stats,
+        }
+        alertas_dict = {
+            "total_alertas": alerts_stats.get("total_alerts", 0),
+            "alertas_pendientes": alerts_stats.get("pending_alerts", 0),
+            "alertas_criticas_pendientes": alerts_stats.get("critical_pending_alerts", 0),
+            "alertas_spoofing": alerts_stats.get("spoofing_alerts", 0),
+            "alertas_rostro_desconocido": alerts_stats.get("unknown_face_alerts", 0),
+            **alerts_stats,
+        }
+
         return {
             "homes": homes_stats,
             "residents": residents_stats,
             "accesses": access_stats,
             "alerts": alerts_stats,
-            "chart_7_days": chart_7_days,
-            "recent_alerts": recent_alerts,
+            "chart_7_days": chart_enriched,
+            "recent_alerts": recent_alerts_enriched,
+            # Backward compatibility aliases for Web Admin
+            "hogares": hogares_dict,
+            "personas": personas_dict,
+            "accesos": accesos_dict,
+            "alertas": alertas_dict,
+            "grafica_7_dias": chart_enriched,
+            "ultimas_alertas": recent_alerts_enriched,
         }
     finally:
         cursor.close()
