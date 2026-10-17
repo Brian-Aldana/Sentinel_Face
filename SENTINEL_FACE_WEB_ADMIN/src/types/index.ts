@@ -19,6 +19,16 @@ export interface Hogar {
   updated_at?: string;
 }
 
+export interface HogarHistorialItem {
+  historial_id: number;
+  hogar_id: number;
+  estado_anterior?: string;
+  estado_nuevo: EstadoServicio;
+  motivo?: string;
+  cambiado_por_nombre?: string;
+  created_at: string;
+}
+
 export interface AuthUser {
   usuario_id: number;
   name: string;

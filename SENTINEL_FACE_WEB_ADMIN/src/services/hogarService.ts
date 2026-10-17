@@ -36,6 +36,11 @@ export const hogarService = {
     });
     return response.data;
   },
+
+  async getHogarHistorial(id: number): Promise<any[]> {
+    const response = await api.get(`/hogares/${id}/historial`);
+    return response.data;
+  },
 };
 
 export const statsService = {
@@ -49,11 +54,11 @@ export const alertService = {
   async getAlerts(resolved?: boolean): Promise<SecurityAlert[]> {
     const params: Record<string, any> = {};
     if (resolved !== undefined) params.resolved = resolved ? 1 : 0;
-    const response = await api.get('/alert', { params });
-    return response.data;
+    const response = await api.get('/alerts', { params });
+    return response.data.alerts || response.data || [];
   },
 
-  async resolveAlert(alertId: number): Promise<void> {
-    await api.put(`/alert/${alertId}/resolve`);
+  async resolveAlert(alertId: number, usuarioId: number = 1): Promise<void> {
+    await api.patch(`/alerts/${alertId}/resolve`, { usuario_id: usuarioId });
   },
 };

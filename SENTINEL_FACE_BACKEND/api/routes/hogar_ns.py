@@ -105,17 +105,20 @@ class HogarStatus(Resource):
         if nuevo_estado not in estados_validos:
             ns.abort(400, f"Estado no válido. Opciones: {', '.join(estados_validos)}")
 
-        if not HogarModel.set_status(hogar_id, nuevo_estado, motivo):
+        identity = get_jwt_identity() or {}
+        usuario_id = identity.get("usuario_id")
+
+        if not HogarModel.set_status(hogar_id, nuevo_estado, motivo, usuario_id):
             ns.abort(404, "Hogar no encontrado")
 
-        identity = get_jwt_identity() or {}
         AuditModel.create(
-            identity.get("usuario_id"),
+            usuario_id,
             f"SET_HOGAR_STATUS_{nuevo_estado}",
             "hogares",
             hogar_id,
             {"nuevo_estado": nuevo_estado, "motivo": motivo},
             request.remote_addr,
+            hogar_id=hogar_id,
         )
         return {
             "success": True,
@@ -124,6 +127,14 @@ class HogarStatus(Resource):
             "motivo_suspension": motivo,
             "message": f"Estado del servicio actualizado a '{nuevo_estado}'"
         }
+
+
+@ns.route("/<int:hogar_id>/historial")
+class HogarHistorial(Resource):
+    @jwt_required(optional=True)
+    def get(self, hogar_id: int):
+        """Retorna el historial de cambios de estado para un hogar específico."""
+        return HogarModel.get_historial(hogar_id)
 
 
 @ns.route("/dashboard/stats")

@@ -8,21 +8,21 @@ import {
   AlertTriangle,
   XCircle,
   Clock,
-  MoreVertical,
   ShieldAlert,
   Users,
   MapPin,
-  Phone,
   Mail,
   Loader2,
   RefreshCw,
   Ban,
   Check,
+  History,
+  FileText,
 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import { hogarService } from '../services/hogarService';
-import { Hogar, EstadoServicio } from '../types';
+import { Hogar, EstadoServicio, HogarHistorialItem } from '../types';
 
 export const HogaresPage: React.FC = () => {
   const [hogares, setHogares] = useState<Hogar[]>([]);
@@ -46,18 +46,25 @@ export const HogaresPage: React.FC = () => {
     notas: '',
   });
 
-  // Modal para Cambiar Estado (Suspender / Denegar)
+  // Modal para Cambiar Estado (Suspender / Denegar / Activar)
   const [selectedHogar, setSelectedHogar] = useState<Hogar | null>(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<EstadoServicio>('SUSPENDIDO');
   const [motivoSuspension, setMotivoSuspension] = useState('');
   const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  // Modal para Historial de Estados de un Hogar
+  const [historialHogar, setHistorialHogar] = useState<Hogar | null>(null);
+  const [isHistorialOpen, setIsHistorialOpen] = useState(false);
+  const [historialItems, setHistorialItems] = useState<HogarHistorialItem[]>([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
 
   const fetchHogares = async () => {
     try {
       setLoading(true);
       const data = await hogarService.getHogares();
-      setHogares(data);
+      setHogares(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching hogares:', err);
     } finally {
@@ -88,7 +95,7 @@ export const HogaresPage: React.FC = () => {
         limite_camaras: 2,
         notas: '',
       });
-      fetchHogares();
+      await fetchHogares();
     } catch (err: any) {
       setCreateError(
         err.response?.data?.message || 'Error al registrar el nuevo hogar'
@@ -102,12 +109,14 @@ export const HogaresPage: React.FC = () => {
     setSelectedHogar(hogar);
     setNewStatus(statusToSet);
     setMotivoSuspension(hogar.motivo_suspension || '');
+    setStatusError(null);
     setIsStatusModalOpen(true);
   };
 
   const handleConfirmStatusChange = async () => {
     if (!selectedHogar) return;
     setStatusLoading(true);
+    setStatusError(null);
 
     try {
       await hogarService.setHogarStatus(
@@ -115,21 +124,47 @@ export const HogaresPage: React.FC = () => {
         newStatus,
         motivoSuspension
       );
+      // Cerramos la modal de inmediato
       setIsStatusModalOpen(false);
-      fetchHogares();
-    } catch (err) {
+      // Actualizamos la lista de hogares de inmediato
+      await fetchHogares();
+    } catch (err: any) {
       console.error('Error cambiando estado del hogar:', err);
+      setStatusError(err.response?.data?.message || 'Error al actualizar el estado del servicio');
     } finally {
       setStatusLoading(false);
     }
   };
 
+  const handleOpenHistorial = async (hogar: Hogar) => {
+    setHistorialHogar(hogar);
+    setIsHistorialOpen(true);
+    setHistorialLoading(true);
+    try {
+      const items = await hogarService.getHogarHistorial(hogar.hogar_id);
+      setHistorialItems(items);
+    } catch (err) {
+      console.error('Error al cargar historial de estados:', err);
+      setHistorialItems([]);
+    } finally {
+      setHistorialLoading(false);
+    }
+  };
+
+  // Métricas agregadas de los hogares
+  const totalHogares = hogares.length;
+  const activosCount = hogares.filter((h) => h.estado_servicio === 'ACTIVO').length;
+  const suspendidosCount = hogares.filter((h) => h.estado_servicio === 'SUSPENDIDO').length;
+  const denegadosCount = hogares.filter((h) => h.estado_servicio === 'DENEGADO').length;
+  const pruebaCount = hogares.filter((h) => h.estado_servicio === 'PRUEBA').length;
+
   const filteredHogares = hogares.filter((h) => {
+    const q = search.toLowerCase();
     const matchesSearch =
-      h.nombre_titular.toLowerCase().includes(search.toLowerCase()) ||
-      h.codigo_hogar.toLowerCase().includes(search.toLowerCase()) ||
-      (h.direccion && h.direccion.toLowerCase().includes(search.toLowerCase())) ||
-      h.email_contacto.toLowerCase().includes(search.toLowerCase());
+      h.nombre_titular.toLowerCase().includes(q) ||
+      h.codigo_hogar.toLowerCase().includes(q) ||
+      (h.direccion && h.direccion.toLowerCase().includes(q)) ||
+      h.email_contacto.toLowerCase().includes(q);
 
     const matchesFilter =
       filterStatus === 'TODOS' || h.estado_servicio === filterStatus;
@@ -139,21 +174,21 @@ export const HogaresPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-white tracking-tight">
-            Gestión de Hogares y Servicios
+            Gestión y Control de Hogares
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Control de suscripciones, límites de personas autorizadas y estado de servicio por residencia.
+            Administración de clientes residenciales en Girardot, límites de capacidad y control de servicio.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={fetchHogares}
             className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-colors"
-            title="Refrescar"
+            title="Refrescar lista"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -164,6 +199,30 @@ export const HogaresPage: React.FC = () => {
             <Plus className="w-4 h-4" />
             <span>Registrar Nuevo Hogar</span>
           </button>
+        </div>
+      </div>
+
+      {/* Top Stat Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+          <span className="text-[11px] font-medium text-slate-400 block">Total Hogares</span>
+          <span className="text-2xl font-bold text-white mt-1 block">{totalHogares}</span>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl border-l-2 border-l-emerald-500">
+          <span className="text-[11px] font-medium text-emerald-400 block">Activos</span>
+          <span className="text-2xl font-bold text-emerald-400 mt-1 block">{activosCount}</span>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl border-l-2 border-l-amber-500">
+          <span className="text-[11px] font-medium text-amber-400 block">Suspendidos</span>
+          <span className="text-2xl font-bold text-amber-400 mt-1 block">{suspendidosCount}</span>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl border-l-2 border-l-rose-500">
+          <span className="text-[11px] font-medium text-rose-400 block">Denegados</span>
+          <span className="text-2xl font-bold text-rose-400 mt-1 block">{denegadosCount}</span>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl border-l-2 border-l-cyan-500 col-span-2 sm:col-span-1">
+          <span className="text-[11px] font-medium text-cyan-400 block">En Prueba</span>
+          <span className="text-2xl font-bold text-cyan-400 mt-1 block">{pruebaCount}</span>
         </div>
       </div>
 
@@ -199,10 +258,11 @@ export const HogaresPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Hogares Table / Cards */}
+      {/* Hogares Table */}
       {loading ? (
-        <div className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-xs text-slate-400 flex items-center justify-center gap-3">
+          <RefreshCw className="w-5 h-5 text-cyan-400 animate-spin" />
+          <span>Cargando hogares clientes...</span>
         </div>
       ) : filteredHogares.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
@@ -221,7 +281,7 @@ export const HogaresPage: React.FC = () => {
                   <th className="py-4 px-6 font-semibold">Código / Titular</th>
                   <th className="py-4 px-6 font-semibold">Ubicación & Contacto</th>
                   <th className="py-4 px-6 font-semibold">Estado del Servicio</th>
-                  <th className="py-4 px-6 font-semibold">Capacidad</th>
+                  <th className="py-4 px-6 font-semibold">Personas / Cámaras</th>
                   <th className="py-4 px-6 font-semibold">Actividad</th>
                   <th className="py-4 px-6 font-semibold text-right">Acciones de Proveedor</th>
                 </tr>
@@ -268,7 +328,10 @@ export const HogaresPage: React.FC = () => {
                       <div>
                         <StatusBadge status={hogar.estado_servicio} />
                         {hogar.motivo_suspension && (
-                          <p className="text-[10px] text-amber-400/90 mt-1 max-w-[180px] truncate" title={hogar.motivo_suspension}>
+                          <p
+                            className="text-[10px] text-amber-400/90 mt-1 max-w-[180px] truncate"
+                            title={hogar.motivo_suspension}
+                          >
                             Motivo: {hogar.motivo_suspension}
                           </p>
                         )}
@@ -279,31 +342,42 @@ export const HogaresPage: React.FC = () => {
                     <td className="py-4 px-6">
                       <div className="text-slate-300">
                         <span className="font-semibold text-white">{hogar.total_personas || 0}</span>
-                        <span className="text-slate-500"> / {hogar.limite_personas} personas</span>
+                        <span className="text-slate-500"> / {hogar.limite_personas} autorizadas</span>
                       </div>
                       <span className="text-[11px] text-slate-500 block">
-                        Hasta {hogar.limite_camaras} cámaras IP
+                        Hasta {hogar.limite_camaras} cámaras
                       </span>
                     </td>
 
                     {/* Actividad */}
                     <td className="py-4 px-6">
                       <div className="text-slate-300">
-                        <span className="font-medium">{hogar.total_accesos || 0}</span> accesos
+                        <span className="font-medium text-white">{hogar.total_accesos || 0}</span> accesos
                       </div>
                       {hogar.alertas_activas && hogar.alertas_activas > 0 ? (
                         <span className="inline-flex items-center gap-1 text-[11px] text-rose-400 font-semibold mt-0.5">
                           <ShieldAlert className="w-3 h-3" />
-                          {hogar.alertas_activas} alertas activas
+                          {hogar.alertas_activas} alertas
                         </span>
                       ) : (
-                        <span className="text-[11px] text-slate-500">0 alertas activas</span>
+                        <span className="text-[11px] text-slate-500">Sin alertas</span>
                       )}
                     </td>
 
                     {/* Acciones de Proveedor */}
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Botón Ver Historial */}
+                        <button
+                          onClick={() => handleOpenHistorial(hogar)}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-colors flex items-center gap-1"
+                          title="Ver historial de cambios de estado"
+                        >
+                          <History className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Historial</span>
+                        </button>
+
+                        {/* Botón Cambiar Estado */}
                         {hogar.estado_servicio === 'ACTIVO' ? (
                           <button
                             onClick={() => handleOpenStatusModal(hogar, 'SUSPENDIDO')}
@@ -361,7 +435,7 @@ export const HogaresPage: React.FC = () => {
               <input
                 type="text"
                 required
-                placeholder="Ej. HOG-002"
+                placeholder="Ej. HOG-007"
                 value={formData.codigo_hogar}
                 onChange={(e) =>
                   setFormData({ ...formData, codigo_hogar: e.target.value })
@@ -519,6 +593,12 @@ export const HogaresPage: React.FC = () => {
         title={`Cambiar Estado de Servicio — ${selectedHogar?.nombre_titular}`}
       >
         <div className="space-y-4 text-xs">
+          {statusError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400">
+              {statusError}
+            </div>
+          )}
+
           <p className="text-slate-300 leading-relaxed">
             Está a punto de cambiar el estado del servicio para{' '}
             <span className="font-semibold text-white">
@@ -529,7 +609,7 @@ export const HogaresPage: React.FC = () => {
 
           {newStatus === 'DENEGADO' || newStatus === 'SUSPENDIDO' ? (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs leading-relaxed">
-              <strong>Importante:</strong> Al {newStatus.toLowerCase()} el servicio, los residentes no podrán acceder mediante reconocimiento facial en la puerta y la app móvil reflejará la suspensión inmediatamente.
+              <strong>Efecto inmediato:</strong> Al {newStatus.toLowerCase()} el servicio, los residentes no podrán acceder mediante reconocimiento facial en la puerta y la app móvil reflejará la suspensión automáticamente.
             </div>
           ) : (
             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
@@ -539,13 +619,13 @@ export const HogaresPage: React.FC = () => {
 
           <div>
             <label className="block text-slate-300 font-medium mb-1">
-              Motivo o Justificación Administrativa
+              Motivo o Justificación Administrativa *
             </label>
             <textarea
               rows={3}
               value={motivoSuspension}
               onChange={(e) => setMotivoSuspension(e.target.value)}
-              placeholder="Ej. Falta de pago de mensualidad, solicitud del propietario, mantenimiento preventivo..."
+              placeholder="Ej. Falta de pago de mensualidad, solicitud del propietario, reactivación acordada..."
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
             />
           </div>
@@ -570,6 +650,80 @@ export const HogaresPage: React.FC = () => {
             >
               {statusLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>Confirmar {newStatus}</span>
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: Historial de Estados de un Hogar */}
+      <Modal
+        isOpen={isHistorialOpen}
+        onClose={() => setIsHistorialOpen(false)}
+        title={`Historial de Estados — ${historialHogar?.nombre_titular} (${historialHogar?.codigo_hogar})`}
+      >
+        <div className="space-y-4 text-xs">
+          {historialLoading ? (
+            <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 text-cyan-400 animate-spin" />
+              <span>Cargando transiciones de estado...</span>
+            </div>
+          ) : historialItems.length === 0 ? (
+            <div className="py-8 text-center text-slate-500">
+              No hay transiciones de estado registradas para este hogar.
+            </div>
+          ) : (
+            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
+              {historialItems.map((item) => (
+                <div key={item.historial_id} className="relative">
+                  {/* Dot */}
+                  <span
+                    className={`absolute -left-[19px] top-1 w-3 h-3 rounded-full border-2 border-slate-900 ${
+                      item.estado_nuevo === 'ACTIVO'
+                        ? 'bg-emerald-400'
+                        : item.estado_nuevo === 'SUSPENDIDO'
+                        ? 'bg-amber-400'
+                        : item.estado_nuevo === 'DENEGADO'
+                        ? 'bg-rose-400'
+                        : 'bg-cyan-400'
+                    }`}
+                  ></span>
+
+                  <div className="bg-slate-950/80 border border-slate-800 p-3.5 rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        {item.estado_anterior ? (
+                          <>
+                            <StatusBadge status={item.estado_anterior} />
+                            <span className="text-slate-500 text-[10px]">&rarr;</span>
+                          </>
+                        ) : null}
+                        <StatusBadge status={item.estado_nuevo} />
+                      </div>
+                      <span className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
+                        <Clock className="w-3 h-3" />
+                        {item.created_at.replace('T', ' ')}
+                      </span>
+                    </div>
+
+                    <p className="text-slate-300 text-xs mt-1">
+                      {item.motivo || 'Sin motivo especificado'}
+                    </p>
+
+                    <p className="text-[10px] text-slate-500 pt-1 border-t border-slate-800/60">
+                      Modificado por: <span className="text-slate-300 font-medium">{item.cambiado_por_nombre || 'Super Administrador'}</span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="pt-3 flex justify-end border-t border-slate-800">
+            <button
+              onClick={() => setIsHistorialOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+            >
+              Cerrar
             </button>
           </div>
         </div>

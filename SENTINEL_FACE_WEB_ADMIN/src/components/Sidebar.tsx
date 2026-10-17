@@ -18,8 +18,8 @@ export const Sidebar: React.FC = () => {
   const navigation = [
     { name: 'Dashboard Global', href: '/', icon: LayoutDashboard },
     { name: 'Gestión de Hogares', href: '/hogares', icon: Home },
+    { name: 'Estadísticas & Análisis', href: '/estadisticas', icon: History },
     { name: 'Alertas de Seguridad', href: '/alertas', icon: ShieldAlert },
-    { name: 'Monitoreo de Accesos', href: '/accesos', icon: History },
     { name: 'Auditoría del Sistema', href: '/auditoria', icon: Users },
     { name: 'Configuración', href: '/configuracion', icon: Settings },
   ];

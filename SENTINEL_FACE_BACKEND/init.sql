@@ -163,42 +163,78 @@ CREATE TABLE IF NOT EXISTS audit_log (
         REFERENCES usuarios (usuario_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ── 9. HISTORIAL DE ESTADOS DE HOGARES ─────────────────────────
+CREATE TABLE IF NOT EXISTS hogar_estado_historial (
+    historial_id     INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    hogar_id         INT UNSIGNED    NOT NULL,
+    estado_anterior  VARCHAR(20)         NULL,
+    estado_nuevo     VARCHAR(20)     NOT NULL,
+    motivo           VARCHAR(255)        NULL,
+    cambiado_por     INT UNSIGNED        NULL,
+    created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (historial_id),
+    KEY idx_heh_hogar (hogar_id),
+    CONSTRAINT fk_heh_hogar FOREIGN KEY (hogar_id)
+        REFERENCES hogares (hogar_id) ON DELETE CASCADE,
+    CONSTRAINT fk_heh_usuario FOREIGN KEY (cambiado_por)
+        REFERENCES usuarios (usuario_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ── SEEDS INICIALES ──────────────────────────────────────────
 
--- Hogar demostración por defecto
-INSERT IGNORE INTO hogares (hogar_id, codigo_hogar, nombre_titular, direccion, telefono, email_contacto, estado_servicio)
-VALUES (
-    1,
-    'HOG-001',
-    'Hogar Principal (Girardot)',
-    'Calle 14 # 8-32, Barrio Granada, Girardot',
-    '3101234567',
-    'admin@admin.com',
-    'ACTIVO'
-);
-
 -- Roles del sistema
-INSERT IGNORE INTO roles (name, description) VALUES
-('superadmin', 'Superadministrador con acceso total a la plataforma web de gestión'),
-('admin', 'Administrador residencial del hogar'),
-('hogar_admin', 'Titular/Administrador de hogar residencial'),
-('hogar_user', 'Usuario residente del hogar');
+INSERT IGNORE INTO roles (role_id, name, description) VALUES
+(1, 'superadmin', 'Superadministrador con acceso total a la plataforma web de gestión'),
+(2, 'admin', 'Administrador residencial del hogar'),
+(3, 'hogar_admin', 'Titular/Administrador de hogar residencial'),
+(4, 'hogar_user', 'Usuario residente del hogar');
 
--- Usuario Administrador principal (clave: AdminSentinel2026!)
--- Hash scrypt generado por werkzeug para AdminSentinel2026!
-INSERT IGNORE INTO usuarios (usuario_id, hogar_id, full_name, email, password_hash)
-VALUES (
-    1,
-    1,
-    'Super Administrador',
-    'admin@admin.com',
-    'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586'
-);
+-- Hogares
+INSERT IGNORE INTO hogares (hogar_id, codigo_hogar, nombre_titular, direccion, telefono, email_contacto, estado_servicio, motivo_suspension, limite_personas, limite_camaras, notas, created_at) VALUES
+(1, 'HOG-001', 'Familia Aldana Sánchez', 'Calle 14 # 8-32, Barrio Granada, Girardot', '3101234567', 'aldana.familia@gmail.com', 'ACTIVO', NULL, 10, 2, 'Hogar principal modelo piloto', '2026-03-01 08:00:00'),
+(2, 'HOG-002', 'Familia Díaz Rodríguez', 'Carrera 10 # 18-45, Barrio Pozo Azul, Girardot', '3119876543', 'diaz.rodriguez@gmail.com', 'ACTIVO', NULL, 8, 2, 'Cámaras en entrada principal y patio', '2026-03-05 09:30:00'),
+(3, 'HOG-003', 'Residencia Gómez Pineda', 'Manzana D Casa 14, Barrio Kennedy, Girardot', '3124567890', 'gomez.pineda@hotmail.com', 'SUSPENDIDO', 'Mora de 2 meses en el pago de servicio', 6, 1, 'Servicio temporalmente deshabilitado por cobranza', '2026-03-10 11:15:00'),
+(4, 'HOG-004', 'Familia Martínez Castro', 'Calle 22 # 5-18, Barrio Alto de la Cruz, Girardot', '3157891234', 'martinez.castro@gmail.com', 'ACTIVO', NULL, 12, 3, 'Inmueble con acceso vehicular y peatonal', '2026-03-15 14:00:00'),
+(5, 'HOG-005', 'Familia Romero Vargas', 'Diagonal 12 # 3-21, Barrio Rosa Blanca, Girardot', '3183216549', 'romero.vargas@yahoo.com', 'DENEGADO', 'Cancelación voluntaria por traslado de ciudad', 5, 1, 'Servicio revocado definitivamente', '2026-03-20 16:45:00'),
+(6, 'HOG-006', 'Residencia Torres Beltrán', 'Carrera 14 # 25-10, Ciudadela Comgirardot', '3206549871', 'torres.beltran@gmail.com', 'PRUEBA', 'Periodo de cortesía de 30 días', 8, 2, 'Instalación nueva en fase de evaluación técnica', '2026-04-01 10:00:00');
 
--- Asignación de roles al usuario inicial
-INSERT IGNORE INTO usuarios_roles (usuario_id, role_id)
-SELECT u.usuario_id, r.role_id
-FROM usuarios u, roles r
-WHERE u.email = 'admin@admin.com' AND r.name IN ('superadmin', 'admin', 'hogar_admin');
+-- Usuarios
+INSERT IGNORE INTO usuarios (usuario_id, hogar_id, full_name, email, password_hash, is_active, created_at) VALUES
+(1, 1, 'Super Administrador Sentinel', 'admin@admin.com', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-01-01 00:00:00'),
+(2, 1, 'Brian Mauricio Aldana', 'brian.aldana@ucundinamarca.edu.co', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-03-01 08:30:00'),
+(3, 2, 'Saraí Sofía Díaz', 'sarai.diaz@ucundinamarca.edu.co', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-03-05 09:45:00'),
+(4, 3, 'Carlos Gómez Pineda', 'carlos.gomez@gmail.com', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-03-10 11:30:00'),
+(5, 4, 'Andrés Martínez', 'andres.martinez@gmail.com', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-03-15 14:15:00'),
+(6, 6, 'Lorena Torres Beltrán', 'lorena.torres@gmail.com', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-04-01 10:15:00');
+
+-- Roles de usuarios
+INSERT IGNORE INTO usuarios_roles (usuario_id, role_id) VALUES
+(1, 1), (1, 2), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3);
+
+-- Personas autorizadas
+INSERT IGNORE INTO employees (employee_id, hogar_id, full_name, document_id, is_active, registered_by, created_at) VALUES
+(1, 1, 'Brian Aldana Sánchez', '1070987123', 1, 1, '2026-03-01 09:00:00'),
+(2, 1, 'María Consuelo Sánchez', '52876543', 1, 1, '2026-03-01 09:10:00'),
+(3, 2, 'Saraí Sofía Díaz', '1069876543', 1, 1, '2026-03-05 10:00:00'),
+(4, 2, 'Héctor Díaz Benavides', '79876543', 1, 1, '2026-03-05 10:15:00'),
+(5, 3, 'Carlos Gómez Pineda', '80123456', 1, 1, '2026-03-10 11:45:00'),
+(6, 3, 'Camila Gómez Ruiz', '1071234567', 1, 1, '2026-03-10 12:00:00'),
+(7, 4, 'Andrés Martínez Castro', '1072345678', 1, 1, '2026-03-15 14:30:00'),
+(8, 4, 'Claudia Patricia Castro', '52345678', 1, 1, '2026-03-15 14:40:00'),
+(9, 4, 'Valentina Martínez Castro', '1073456789', 1, 1, '2026-03-15 14:50:00'),
+(10, 5, 'Germán Romero Vargas', '79654321', 1, 1, '2026-03-20 17:00:00'),
+(11, 6, 'Lorena Torres Beltrán', '1074567890', 1, 1, '2026-04-01 10:30:00'),
+(12, 6, 'Mateo Beltrán Ospina', '1075678901', 1, 1, '2026-04-01 10:45:00');
+
+-- Historial de estados
+INSERT IGNORE INTO hogar_estado_historial (historial_id, hogar_id, estado_anterior, estado_nuevo, motivo, cambiado_por, created_at) VALUES
+(1, 1, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-01 08:00:00'),
+(2, 2, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-05 09:30:00'),
+(3, 3, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-10 11:15:00'),
+(4, 3, 'ACTIVO', 'SUSPENDIDO', 'Mora de 2 meses en el pago de servicio', 1, '2026-04-05 09:00:00'),
+(5, 4, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-15 14:00:00'),
+(6, 5, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-20 16:45:00'),
+(7, 5, 'ACTIVO', 'DENEGADO', 'Cancelación voluntaria por traslado de ciudad', 1, '2026-04-08 14:30:00'),
+(8, 6, NULL, 'PRUEBA', 'Periodo de cortesía de 30 días para evaluación', 1, '2026-04-01 10:00:00');
 
 SET FOREIGN_KEY_CHECKS = 1;

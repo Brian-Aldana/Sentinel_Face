@@ -179,18 +179,57 @@ def update(hogar_id: int, data: dict):
         conn.close()
 
 
-def set_status(hogar_id: int, nuevo_estado: str, motivo: str = None):
+def set_status(hogar_id: int, nuevo_estado: str, motivo: str = None, cambiado_por: int = None):
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     try:
+        # 1. Obtener estado anterior
+        cursor.execute("SELECT estado_servicio FROM hogares WHERE hogar_id = %s", (hogar_id,))
+        row = cursor.fetchone()
+        estado_anterior = row["estado_servicio"] if row else None
+
+        # 2. Actualizar estado en hogares
         cursor.execute("""
             UPDATE hogares
             SET estado_servicio = %s,
                 motivo_suspension = %s
             WHERE hogar_id = %s
         """, (nuevo_estado, motivo, hogar_id))
+        updated = cursor.rowcount > 0
+
+        # 3. Registrar en historial de transiciones
+        if updated:
+            cursor.execute("""
+                INSERT INTO hogar_estado_historial (hogar_id, estado_anterior, estado_nuevo, motivo, cambiado_por)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (hogar_id, estado_anterior, nuevo_estado, motivo, cambiado_por))
+
         conn.commit()
-        return cursor.rowcount > 0
+        return updated
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_historial(hogar_id: int):
+    """Retorna la cronología de cambios de estado para un hogar."""
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT heh.historial_id, heh.hogar_id, heh.estado_anterior,
+                   heh.estado_nuevo, heh.motivo, heh.created_at,
+                   u.full_name AS cambiado_por_nombre
+            FROM hogar_estado_historial heh
+            LEFT JOIN usuarios u ON heh.cambiado_por = u.usuario_id
+            WHERE heh.hogar_id = %s
+            ORDER BY heh.created_at DESC
+        """, (hogar_id,))
+        rows = cursor.fetchall()
+        for r in rows:
+            if r.get("created_at"):
+                r["created_at"] = r["created_at"].isoformat()
+        return rows
     finally:
         cursor.close()
         conn.close()

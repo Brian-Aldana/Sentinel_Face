@@ -12,6 +12,8 @@ export const Layout: React.FC = () => {
         return 'Dashboard de Operaciones y Seguridad';
       case '/hogares':
         return 'Directorio y Control de Hogares Clientes';
+      case '/estadisticas':
+        return 'Estadísticas & Análisis del Proveedor';
       case '/alertas':
         return 'Centro de Alertas de Seguridad & Anti-Spoofing';
       case '/accesos':
