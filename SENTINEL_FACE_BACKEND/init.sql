@@ -1,31 +1,31 @@
 -- ============================================================
---  SENTINEL FACE  —  init.sql (Modelo Multi-Hogar / SaaS)
---  Ejecutado automáticamente por MariaDB al crear el contenedor
+--  SENTINEL FACE — Database Schema (English / Multi-Tenant SaaS)
+--  Executed automatically by MariaDB upon container initialization
 -- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ── 1. HOGARES (Tenants / Clientes del Servicio) ─────────────
-CREATE TABLE IF NOT EXISTS hogares (
-    hogar_id          INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    codigo_hogar      VARCHAR(50)     NOT NULL,
-    nombre_titular    VARCHAR(150)    NOT NULL,
-    direccion         VARCHAR(255)        NULL,
-    telefono          VARCHAR(30)         NULL,
-    email_contacto    VARCHAR(150)    NOT NULL,
-    estado_servicio   ENUM('ACTIVO','SUSPENDIDO','DENEGADO','PRUEBA') NOT NULL DEFAULT 'ACTIVO',
-    motivo_suspension VARCHAR(255)        NULL,
-    limite_personas   INT             NOT NULL DEFAULT 10,
-    limite_camaras    INT             NOT NULL DEFAULT 2,
-    notas             TEXT                NULL,
-    created_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
-                                        ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (hogar_id),
-    UNIQUE KEY uq_codigo_hogar (codigo_hogar),
-    UNIQUE KEY uq_email_contacto (email_contacto),
-    KEY idx_estado_servicio (estado_servicio)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- ── 1. HOMES (Residential Tenants / Service Clients) ─────────
+CREATE TABLE IF NOT EXISTS homes (
+    home_id            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    home_code          VARCHAR(50)     NOT NULL,
+    owner_name         VARCHAR(150)    NOT NULL,
+    address            VARCHAR(255)        NULL,
+    phone              VARCHAR(30)         NULL,
+    contact_email      VARCHAR(150)    NOT NULL,
+    service_status     ENUM('ACTIVE','SUSPENDED','DENIED','TRIAL') NOT NULL DEFAULT 'ACTIVE',
+    suspension_reason  VARCHAR(255)        NULL,
+    max_residents      INT             NOT NULL DEFAULT 10,
+    max_cameras        INT             NOT NULL DEFAULT 2,
+    notes              TEXT                NULL,
+    created_at         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                         ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (home_id),
+    UNIQUE KEY uq_home_code (home_code),
+    UNIQUE KEY uq_contact_email (contact_email),
+    KEY idx_service_status (service_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── 2. ROLES ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS roles (
@@ -36,44 +36,44 @@ CREATE TABLE IF NOT EXISTS roles (
     created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (role_id),
     UNIQUE KEY uq_role_name (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── 3. USUARIOS (Superadministradores y Residentes) ───────────
-CREATE TABLE IF NOT EXISTS usuarios (
-    usuario_id    INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    hogar_id      INT UNSIGNED        NULL,
+-- ── 3. USERS (Superadmins and Resident Accounts) ──────────────
+CREATE TABLE IF NOT EXISTS users (
+    user_id       INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    home_id       INT UNSIGNED        NULL,
     full_name     VARCHAR(150)    NOT NULL,
     email         VARCHAR(150)    NOT NULL,
     password_hash VARCHAR(256)    NOT NULL,
     is_active     TINYINT(1)      NOT NULL DEFAULT 1,
     created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_login    DATETIME            NULL,
-    PRIMARY KEY (usuario_id),
-    UNIQUE KEY uq_usuario_email (email),
-    KEY idx_usuario_hogar (hogar_id),
-    CONSTRAINT fk_usuario_hogar FOREIGN KEY (hogar_id)
-        REFERENCES hogares (hogar_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    PRIMARY KEY (user_id),
+    UNIQUE KEY uq_user_email (email),
+    KEY idx_user_home (home_id),
+    CONSTRAINT fk_user_home FOREIGN KEY (home_id)
+        REFERENCES homes (home_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── 4. USUARIOS_ROLES (tabla intermedia) ─────────────────────
-CREATE TABLE IF NOT EXISTS usuarios_roles (
-    usuario_id    INT UNSIGNED    NOT NULL,
-    role_id       INT UNSIGNED    NOT NULL,
-    asignado_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    asignado_por  INT UNSIGNED        NULL,
-    PRIMARY KEY (usuario_id, role_id),
-    CONSTRAINT fk_ur_usuario FOREIGN KEY (usuario_id)
-        REFERENCES usuarios (usuario_id) ON DELETE CASCADE,
+-- ── 4. USER_ROLES (Junction table) ───────────────────────────
+CREATE TABLE IF NOT EXISTS user_roles (
+    user_id      INT UNSIGNED    NOT NULL,
+    role_id      INT UNSIGNED    NOT NULL,
+    assigned_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    assigned_by  INT UNSIGNED        NULL,
+    PRIMARY KEY (user_id, role_id),
+    CONSTRAINT fk_ur_user FOREIGN KEY (user_id)
+        REFERENCES users (user_id) ON DELETE CASCADE,
     CONSTRAINT fk_ur_role FOREIGN KEY (role_id)
         REFERENCES roles (role_id) ON DELETE CASCADE,
-    CONSTRAINT fk_ur_asignado_por FOREIGN KEY (asignado_por)
-        REFERENCES usuarios (usuario_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CONSTRAINT fk_ur_assigned_by FOREIGN KEY (assigned_by)
+        REFERENCES users (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── 5. EMPLEADOS / PERSONAS AUTORIZADAS ───────────────────────
-CREATE TABLE IF NOT EXISTS employees (
-    employee_id   INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    hogar_id      INT UNSIGNED        NULL,
+-- ── 5. RESIDENTS (Authorized Household Persons) ──────────────
+CREATE TABLE IF NOT EXISTS residents (
+    resident_id   INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    home_id       INT UNSIGNED        NULL,
     full_name     VARCHAR(150)    NOT NULL,
     document_id   VARCHAR(50)         NULL,
     embedding     BLOB                NULL,
@@ -82,40 +82,40 @@ CREATE TABLE IF NOT EXISTS employees (
     registered_by INT UNSIGNED        NULL,
     created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
-                                        ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (employee_id),
-    UNIQUE KEY uq_document (document_id),
-    KEY idx_emp_hogar (hogar_id),
-    CONSTRAINT fk_emp_hogar FOREIGN KEY (hogar_id)
-        REFERENCES hogares (hogar_id) ON DELETE CASCADE,
-    CONSTRAINT fk_emp_usuario FOREIGN KEY (registered_by)
-        REFERENCES usuarios (usuario_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                                    ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (resident_id),
+    UNIQUE KEY uq_resident_document (document_id),
+    KEY idx_resident_home (home_id),
+    CONSTRAINT fk_resident_home FOREIGN KEY (home_id)
+        REFERENCES homes (home_id) ON DELETE CASCADE,
+    CONSTRAINT fk_resident_user FOREIGN KEY (registered_by)
+        REFERENCES users (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── 6. REGISTRO DE ACCESOS ────────────────────────────────────
+-- ── 6. ACCESS LOGS (Biometric Verification Entries) ──────────
 CREATE TABLE IF NOT EXISTS access_logs (
     log_id        INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    hogar_id      INT UNSIGNED        NULL,
-    employee_id   INT UNSIGNED        NULL,
+    home_id       INT UNSIGNED        NULL,
+    resident_id   INT UNSIGNED        NULL,
     access_result ENUM('GRANTED','DENIED') NOT NULL,
     confidence    FLOAT               NULL,
     liveness      ENUM('REAL','SPOOFING','UNKNOWN') NOT NULL DEFAULT 'UNKNOWN',
     snapshot_img  MEDIUMBLOB          NULL,
     event_time    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (log_id),
-    KEY idx_log_hogar    (hogar_id),
-    KEY idx_log_employee (employee_id),
+    KEY idx_log_home     (home_id),
+    KEY idx_log_resident (resident_id),
     KEY idx_log_time     (event_time),
-    CONSTRAINT fk_log_hogar FOREIGN KEY (hogar_id)
-        REFERENCES hogares (hogar_id) ON DELETE CASCADE,
-    CONSTRAINT fk_log_employee FOREIGN KEY (employee_id)
-        REFERENCES employees (employee_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CONSTRAINT fk_log_home FOREIGN KEY (home_id)
+        REFERENCES homes (home_id) ON DELETE CASCADE,
+    CONSTRAINT fk_log_resident FOREIGN KEY (resident_id)
+        REFERENCES residents (resident_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── 7. ALERTAS DE SEGURIDAD ───────────────────────────────────
+-- ── 7. SECURITY ALERTS (Anti-spoofing and Intrusions) ─────────
 CREATE TABLE IF NOT EXISTS security_alerts (
     alert_id      INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    hogar_id      INT UNSIGNED        NULL,
+    home_id       INT UNSIGNED        NULL,
     log_id        INT UNSIGNED        NULL,
     alert_type    ENUM(
                     'SPOOFING_ATTEMPT',
@@ -130,22 +130,22 @@ CREATE TABLE IF NOT EXISTS security_alerts (
     resolved_at   DATETIME            NULL,
     created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (alert_id),
-    KEY idx_alert_hogar    (hogar_id),
+    KEY idx_alert_home     (home_id),
     KEY idx_alert_type     (alert_type),
     KEY idx_alert_resolved (resolved),
-    CONSTRAINT fk_alert_hogar FOREIGN KEY (hogar_id)
-        REFERENCES hogares (hogar_id) ON DELETE CASCADE,
+    CONSTRAINT fk_alert_home FOREIGN KEY (home_id)
+        REFERENCES homes (home_id) ON DELETE CASCADE,
     CONSTRAINT fk_alert_log FOREIGN KEY (log_id)
         REFERENCES access_logs (log_id) ON DELETE SET NULL,
     CONSTRAINT fk_alert_resolver FOREIGN KEY (resolved_by)
-        REFERENCES usuarios (usuario_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        REFERENCES users (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── 8. AUDITORÍA DE CAMBIOS ───────────────────────────────────
+-- ── 8. AUDIT LOG (Administrative Action Records) ─────────────
 CREATE TABLE IF NOT EXISTS audit_log (
     audit_id      INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    hogar_id      INT UNSIGNED        NULL,
-    usuario_id    INT UNSIGNED        NULL,
+    home_id       INT UNSIGNED        NULL,
+    user_id       INT UNSIGNED        NULL,
     action        VARCHAR(80)     NOT NULL,
     target_table  VARCHAR(80)         NULL,
     target_id     INT UNSIGNED        NULL,
@@ -153,53 +153,53 @@ CREATE TABLE IF NOT EXISTS audit_log (
     ip_address    VARCHAR(45)         NULL,
     created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (audit_id),
-    KEY idx_audit_hogar   (hogar_id),
-    KEY idx_audit_usuario (usuario_id),
+    KEY idx_audit_home    (home_id),
+    KEY idx_audit_user    (user_id),
     KEY idx_audit_action  (action),
     KEY idx_audit_time    (created_at),
-    CONSTRAINT fk_audit_hogar FOREIGN KEY (hogar_id)
-        REFERENCES hogares (hogar_id) ON DELETE SET NULL,
-    CONSTRAINT fk_audit_usuario FOREIGN KEY (usuario_id)
-        REFERENCES usuarios (usuario_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    CONSTRAINT fk_audit_home FOREIGN KEY (home_id)
+        REFERENCES homes (home_id) ON DELETE SET NULL,
+    CONSTRAINT fk_audit_user FOREIGN KEY (user_id)
+        REFERENCES users (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── 9. HISTORIAL DE ESTADOS DE HOGARES ─────────────────────────
-CREATE TABLE IF NOT EXISTS hogar_estado_historial (
-    historial_id     INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-    hogar_id         INT UNSIGNED    NOT NULL,
-    estado_anterior  VARCHAR(20)         NULL,
-    estado_nuevo     VARCHAR(20)     NOT NULL,
-    motivo           VARCHAR(255)        NULL,
-    cambiado_por     INT UNSIGNED        NULL,
+-- ── 9. HOME STATUS HISTORY (Service Status Transitions) ───────
+CREATE TABLE IF NOT EXISTS home_status_history (
+    history_id       INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    home_id          INT UNSIGNED    NOT NULL,
+    previous_status  VARCHAR(20)         NULL,
+    new_status       VARCHAR(20)     NOT NULL,
+    reason           VARCHAR(255)        NULL,
+    changed_by       INT UNSIGNED        NULL,
     created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (historial_id),
-    KEY idx_heh_hogar (hogar_id),
-    CONSTRAINT fk_heh_hogar FOREIGN KEY (hogar_id)
-        REFERENCES hogares (hogar_id) ON DELETE CASCADE,
-    CONSTRAINT fk_heh_usuario FOREIGN KEY (cambiado_por)
-        REFERENCES usuarios (usuario_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    PRIMARY KEY (history_id),
+    KEY idx_hsh_home (home_id),
+    CONSTRAINT fk_hsh_home FOREIGN KEY (home_id)
+        REFERENCES homes (home_id) ON DELETE CASCADE,
+    CONSTRAINT fk_hsh_user FOREIGN KEY (changed_by)
+        REFERENCES users (user_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ── SEEDS INICIALES ──────────────────────────────────────────
+-- ── INITIAL SEED DATA ────────────────────────────────────────
 
--- Roles del sistema
+-- Roles
 INSERT IGNORE INTO roles (role_id, name, description) VALUES
-(1, 'superadmin', 'Superadministrador con acceso total a la plataforma web de gestión'),
-(2, 'admin', 'Administrador residencial del hogar'),
-(3, 'hogar_admin', 'Titular/Administrador de hogar residencial'),
-(4, 'hogar_user', 'Usuario residente del hogar');
+(1, 'superadmin', 'Superadministrator with full system access'),
+(2, 'admin', 'Residential security administrator'),
+(3, 'home_admin', 'Household resident owner/manager'),
+(4, 'home_user', 'Household regular resident');
 
--- Hogares
-INSERT IGNORE INTO hogares (hogar_id, codigo_hogar, nombre_titular, direccion, telefono, email_contacto, estado_servicio, motivo_suspension, limite_personas, limite_camaras, notas, created_at) VALUES
-(1, 'HOG-001', 'Familia Aldana Sánchez', 'Calle 14 # 8-32, Barrio Granada, Girardot', '3101234567', 'aldana.familia@gmail.com', 'ACTIVO', NULL, 10, 2, 'Hogar principal modelo piloto', '2026-03-01 08:00:00'),
-(2, 'HOG-002', 'Familia Díaz Rodríguez', 'Carrera 10 # 18-45, Barrio Pozo Azul, Girardot', '3119876543', 'diaz.rodriguez@gmail.com', 'ACTIVO', NULL, 8, 2, 'Cámaras en entrada principal y patio', '2026-03-05 09:30:00'),
-(3, 'HOG-003', 'Residencia Gómez Pineda', 'Manzana D Casa 14, Barrio Kennedy, Girardot', '3124567890', 'gomez.pineda@hotmail.com', 'SUSPENDIDO', 'Mora de 2 meses en el pago de servicio', 6, 1, 'Servicio temporalmente deshabilitado por cobranza', '2026-03-10 11:15:00'),
-(4, 'HOG-004', 'Familia Martínez Castro', 'Calle 22 # 5-18, Barrio Alto de la Cruz, Girardot', '3157891234', 'martinez.castro@gmail.com', 'ACTIVO', NULL, 12, 3, 'Inmueble con acceso vehicular y peatonal', '2026-03-15 14:00:00'),
-(5, 'HOG-005', 'Familia Romero Vargas', 'Diagonal 12 # 3-21, Barrio Rosa Blanca, Girardot', '3183216549', 'romero.vargas@yahoo.com', 'DENEGADO', 'Cancelación voluntaria por traslado de ciudad', 5, 1, 'Servicio revocado definitivamente', '2026-03-20 16:45:00'),
-(6, 'HOG-006', 'Residencia Torres Beltrán', 'Carrera 14 # 25-10, Ciudadela Comgirardot', '3206549871', 'torres.beltran@gmail.com', 'PRUEBA', 'Periodo de cortesía de 30 días', 8, 2, 'Instalación nueva en fase de evaluación técnica', '2026-04-01 10:00:00');
+-- Homes
+INSERT IGNORE INTO homes (home_id, home_code, owner_name, address, phone, contact_email, service_status, suspension_reason, max_residents, max_cameras, notes, created_at) VALUES
+(1, 'HOG-001', 'Familia Aldana Sánchez', 'Calle 14 # 8-32, Barrio Granada, Girardot', '3101234567', 'aldana.familia@gmail.com', 'ACTIVE', NULL, 10, 2, 'Pilot residential home model', '2026-03-01 08:00:00'),
+(2, 'HOG-002', 'Familia Díaz Rodríguez', 'Carrera 10 # 18-45, Barrio Pozo Azul, Girardot', '3119876543', 'diaz.rodriguez@gmail.com', 'ACTIVE', NULL, 8, 2, 'Front entrance and backyard cameras', '2026-03-05 09:30:00'),
+(3, 'HOG-003', 'Residencia Gómez Pineda', 'Manzana D Casa 14, Barrio Kennedy, Girardot', '3124567890', 'gomez.pineda@hotmail.com', 'SUSPENDED', 'Mora de 2 meses en el pago de servicio', 6, 1, 'Service suspended due to overdue invoice', '2026-03-10 11:15:00'),
+(4, 'HOG-004', 'Familia Martínez Castro', 'Calle 22 # 5-18, Barrio Alto de la Cruz, Girardot', '3157891234', 'martinez.castro@gmail.com', 'ACTIVE', NULL, 12, 3, 'Property with pedestrian and vehicular access', '2026-03-15 14:00:00'),
+(5, 'HOG-005', 'Familia Romero Vargas', 'Diagonal 12 # 3-21, Barrio Rosa Blanca, Girardot', '3183216549', 'romero.vargas@yahoo.com', 'DENIED', 'Cancelación voluntaria por traslado de ciudad', 5, 1, 'Service permanently cancelled', '2026-03-20 16:45:00'),
+(6, 'HOG-006', 'Residencia Torres Beltrán', 'Carrera 14 # 25-10, Ciudadela Comgirardot', '3206549871', 'torres.beltran@gmail.com', 'TRIAL', 'Periodo de cortesía de 30 días', 8, 2, 'New deployment under trial evaluation', '2026-04-01 10:00:00');
 
--- Usuarios
-INSERT IGNORE INTO usuarios (usuario_id, hogar_id, full_name, email, password_hash, is_active, created_at) VALUES
+-- Users
+INSERT IGNORE INTO users (user_id, home_id, full_name, email, password_hash, is_active, created_at) VALUES
 (1, 1, 'Super Administrador Sentinel', 'admin@admin.com', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-01-01 00:00:00'),
 (2, 1, 'Brian Mauricio Aldana', 'brian.aldana@ucundinamarca.edu.co', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-03-01 08:30:00'),
 (3, 2, 'Saraí Sofía Díaz', 'sarai.diaz@ucundinamarca.edu.co', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-03-05 09:45:00'),
@@ -207,12 +207,12 @@ INSERT IGNORE INTO usuarios (usuario_id, hogar_id, full_name, email, password_ha
 (5, 4, 'Andrés Martínez', 'andres.martinez@gmail.com', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-03-15 14:15:00'),
 (6, 6, 'Lorena Torres Beltrán', 'lorena.torres@gmail.com', 'scrypt:32768:8:1$gmN20ilIhYuX42xl$04807a5b1ac1a46b8951ce07631af877b94dedb7bc105ec598a2441d412e6c29ccdea66feb606469d7279fe4d538eaacbba1fdaf9c374dba1527d32594edc586', 1, '2026-04-01 10:15:00');
 
--- Roles de usuarios
-INSERT IGNORE INTO usuarios_roles (usuario_id, role_id) VALUES
+-- User Roles
+INSERT IGNORE INTO user_roles (user_id, role_id) VALUES
 (1, 1), (1, 2), (2, 3), (3, 3), (4, 3), (5, 3), (6, 3);
 
--- Personas autorizadas
-INSERT IGNORE INTO employees (employee_id, hogar_id, full_name, document_id, is_active, registered_by, created_at) VALUES
+-- Residents
+INSERT IGNORE INTO residents (resident_id, home_id, full_name, document_id, is_active, registered_by, created_at) VALUES
 (1, 1, 'Brian Aldana Sánchez', '1070987123', 1, 1, '2026-03-01 09:00:00'),
 (2, 1, 'María Consuelo Sánchez', '52876543', 1, 1, '2026-03-01 09:10:00'),
 (3, 2, 'Saraí Sofía Díaz', '1069876543', 1, 1, '2026-03-05 10:00:00'),
@@ -226,15 +226,15 @@ INSERT IGNORE INTO employees (employee_id, hogar_id, full_name, document_id, is_
 (11, 6, 'Lorena Torres Beltrán', '1074567890', 1, 1, '2026-04-01 10:30:00'),
 (12, 6, 'Mateo Beltrán Ospina', '1075678901', 1, 1, '2026-04-01 10:45:00');
 
--- Historial de estados
-INSERT IGNORE INTO hogar_estado_historial (historial_id, hogar_id, estado_anterior, estado_nuevo, motivo, cambiado_por, created_at) VALUES
-(1, 1, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-01 08:00:00'),
-(2, 2, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-05 09:30:00'),
-(3, 3, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-10 11:15:00'),
-(4, 3, 'ACTIVO', 'SUSPENDIDO', 'Mora de 2 meses en el pago de servicio', 1, '2026-04-05 09:00:00'),
-(5, 4, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-15 14:00:00'),
-(6, 5, NULL, 'ACTIVO', 'Alta inicial del servicio residencial', 1, '2026-03-20 16:45:00'),
-(7, 5, 'ACTIVO', 'DENEGADO', 'Cancelación voluntaria por traslado de ciudad', 1, '2026-04-08 14:30:00'),
-(8, 6, NULL, 'PRUEBA', 'Periodo de cortesía de 30 días para evaluación', 1, '2026-04-01 10:00:00');
+-- Home Status History
+INSERT IGNORE INTO home_status_history (history_id, home_id, previous_status, new_status, reason, changed_by, created_at) VALUES
+(1, 1, NULL, 'ACTIVE', 'Initial residential service onboarding', 1, '2026-03-01 08:00:00'),
+(2, 2, NULL, 'ACTIVE', 'Initial residential service onboarding', 1, '2026-03-05 09:30:00'),
+(3, 3, NULL, 'ACTIVE', 'Initial residential service onboarding', 1, '2026-03-10 11:15:00'),
+(4, 3, 'ACTIVE', 'SUSPENDED', 'Mora de 2 meses en el pago de servicio', 1, '2026-04-05 09:00:00'),
+(5, 4, NULL, 'ACTIVE', 'Initial residential service onboarding', 1, '2026-03-15 14:00:00'),
+(6, 5, NULL, 'ACTIVE', 'Initial residential service onboarding', 1, '2026-03-20 16:45:00'),
+(7, 5, 'ACTIVE', 'DENIED', 'Cancelación voluntaria por traslado de ciudad', 1, '2026-04-08 14:30:00'),
+(8, 6, NULL, 'TRIAL', 'Periodo de cortesía de 30 días para evaluación', 1, '2026-04-01 10:00:00');
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -1,11 +1,10 @@
 import { Redirect, Tabs } from "expo-router";
 import {
-    Bell,
-    Camera,
-    ClipboardList,
-    Settings,
-    Shield,
-    Users,
+  Bell,
+  Clock,
+  Home as HomeIcon,
+  Settings,
+  Users,
 } from "lucide-react-native";
 import React from "react";
 import { useThemeColors } from "../../constants/theme";
@@ -16,7 +15,10 @@ export default function AdminLayout() {
   const hasRole = useAuthStore((s) => s.hasRole);
   const C = useThemeColors();
 
-  if (!isAuthenticated || !hasRole("admin")) return <Redirect href="/" />;
+  const isAuthorized =
+    hasRole("home_admin") || hasRole("hogar_admin") || hasRole("admin");
+
+  if (!isAuthenticated || !isAuthorized) return <Redirect href="/" />;
 
   return (
     <Tabs
@@ -35,49 +37,45 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: "Panel",
-          tabBarIcon: ({ color }) => <Shield size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="gallery"
-        options={{
-          title: "Galería",
-          tabBarIcon: ({ color }) => <Camera size={24} color={color} />,
+          title: "Inicio",
+          tabBarIcon: ({ color }) => <HomeIcon size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="users"
         options={{
-          title: "Usuarios",
-          tabBarIcon: ({ color }) => <Users size={24} color={color} />,
+          title: "Residentes",
+          tabBarIcon: ({ color }) => <Users size={22} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="audit"
+        name="history"
         options={{
-          title: "Auditoría",
-          tabBarIcon: ({ color }) => <ClipboardList size={24} color={color} />,
+          title: "Historial",
+          tabBarIcon: ({ color }) => <Clock size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="alerts"
         options={{
           title: "Alertas",
-          tabBarIcon: ({ color }) => <Bell size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Bell size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Config",
-          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          title: "Ajustes",
+          tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
         }}
       />
+
+      {/* Hidden Screens accessible via navigation */}
       <Tabs.Screen name="alert-detail" options={{ href: null }} />
-      <Tabs.Screen name="history" options={{ href: null }} />
-      <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="register" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="audit" options={{ href: null }} />
+      <Tabs.Screen name="gallery" options={{ href: null }} />
     </Tabs>
   );
 }

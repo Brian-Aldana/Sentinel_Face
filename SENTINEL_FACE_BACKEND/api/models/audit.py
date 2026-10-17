@@ -3,7 +3,7 @@ from flask import request
 from db import get_db
 
 
-def find_all(limit=50, page=1):
+def find_all(home_id: int = None, limit=50, page=1):
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
     try:
@@ -11,20 +11,24 @@ def find_all(limit=50, page=1):
         page = max(int(page), 1)
         offset = (page - 1) * limit
 
-        cursor.execute("SELECT COUNT(*) AS total FROM audit_log")
+        where = "WHERE al.home_id = %s" if home_id else ""
+        params = [home_id] if home_id else []
+
+        cursor.execute(f"SELECT COUNT(*) AS total FROM audit_log al {where}", params)
         total = cursor.fetchone()["total"]
 
-        cursor.execute("""
-            SELECT al.audit_id, al.hogar_id, al.action, al.target_table,
+        cursor.execute(f"""
+            SELECT al.audit_id, al.home_id, al.action, al.target_table,
                    al.target_id, al.detail, al.ip_address, al.created_at,
-                   u.full_name AS usuario_name,
-                   h.codigo_hogar, h.nombre_titular
+                   u.full_name AS user_name,
+                   h.home_code, h.owner_name
             FROM audit_log al
-            LEFT JOIN usuarios u ON al.usuario_id = u.usuario_id
-            LEFT JOIN hogares h ON al.hogar_id = h.hogar_id
+            LEFT JOIN users u ON al.user_id = u.user_id
+            LEFT JOIN homes h ON al.home_id = h.home_id
+            {where}
             ORDER BY al.created_at DESC
             LIMIT %s OFFSET %s
-        """, (limit, offset))
+        """, params + [limit, offset])
         rows = cursor.fetchall()
         for r in rows:
             if r.get("created_at"):
@@ -51,11 +55,13 @@ def find_by_id(audit_id: int):
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT al.audit_id, al.hogar_id, al.action, al.target_table,
+            SELECT al.audit_id, al.home_id, al.action, al.target_table,
                    al.target_id, al.detail, al.ip_address, al.created_at,
-                   u.full_name AS usuario_name
+                   u.full_name AS user_name,
+                   h.home_code, h.owner_name
             FROM audit_log al
-            LEFT JOIN usuarios u ON al.usuario_id = u.usuario_id
+            LEFT JOIN users u ON al.user_id = u.user_id
+            LEFT JOIN homes h ON al.home_id = h.home_id
             WHERE al.audit_id = %s
         """, (audit_id,))
         row = cursor.fetchone()
@@ -72,38 +78,34 @@ def find_by_id(audit_id: int):
         conn.close()
 
 
-def create(usuario_id=None, action: str = "", table: str = None,
-           target_id: int = None, detail: dict = None, ip_address: str = None, hogar_id: int = None):
+def record(user_id=None, action: str = "", target_table: str = None,
+           target_id: int = None, detail: dict = None, ip_address: str = None,
+           home_id: int = None, **kwargs):
+    actual_user_id = user_id or kwargs.get("usuario_id")
+    actual_home_id = home_id or kwargs.get("hogar_id")
+
+    if ip_address is None:
+        try:
+            ip_address = request.remote_addr
+        except RuntimeError:
+            ip_address = "127.0.0.1"
+
+    detail_json = json.dumps(detail) if detail else None
+
     conn = get_db()
     cursor = conn.cursor()
     try:
-        ip = ip_address
-        if not ip:
-            try:
-                ip = request.remote_addr
-            except Exception:
-                ip = "127.0.0.1"
-
-        detail_json = None
-        if detail:
-            if isinstance(detail, str):
-                detail_json = detail
-            else:
-                detail_json = json.dumps(detail)
-
-        cursor.execute(
-            "INSERT INTO audit_log "
-            "(hogar_id, usuario_id, action, target_table, target_id, detail, ip_address) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (hogar_id, usuario_id, action, table, target_id, detail_json, ip),
-        )
+        cursor.execute("""
+            INSERT INTO audit_log
+            (user_id, home_id, action, target_table, target_id, detail, ip_address)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (actual_user_id, actual_home_id, action, target_table, target_id, detail_json, ip_address))
         conn.commit()
     except Exception as e:
-        print(f"[AUDIT ERROR] {e}")
+        print(f"[AUDIT ERROR]: {e}")
     finally:
         cursor.close()
         conn.close()
 
 
-# Alias para retrocompatibilidad
-record = create
+create = record

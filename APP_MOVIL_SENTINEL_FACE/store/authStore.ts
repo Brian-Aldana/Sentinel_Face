@@ -1,14 +1,18 @@
 import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { api, TOKEN_KEY } from "../services/api";
+import { api } from "../services/api";
 import { isTokenExpired } from "../utils/jwtUtils";
+import { Home } from "../types/domain";
 
 export interface AuthUser {
   id: string;
+  user_id: number;
   name: string;
   email: string;
   roles: string[];
+  home_id?: number | null;
+  home?: Home | null;
 }
 
 interface AuthState {
@@ -19,6 +23,8 @@ interface AuthState {
   hasRole: (role: string) => boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshHome: () => Promise<Home | null>;
+  setHome: (home: Home) => void;
 }
 
 const secureStorage = {
@@ -35,17 +41,27 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
 
-      hasRole: (role) => get().user?.roles.includes(role) ?? false,
+      hasRole: (role) => {
+        const roles = get().user?.roles ?? [];
+        // Map hogar_admin to home_admin and vice versa for robust authorization
+        if (role === "home_admin" || role === "hogar_admin") {
+          return roles.includes("home_admin") || roles.includes("hogar_admin") || roles.includes("admin");
+        }
+        return roles.includes(role);
+      },
 
       login: async (email, password) => {
         const { data } = await api.login(email, password);
         if (!data.success) throw new Error("Credenciales inválidas.");
 
         const user: AuthUser = {
-          id: String(data.usuario_id),
+          id: String(data.user_id || data.usuario_id),
+          user_id: Number(data.user_id || data.usuario_id),
           name: data.name,
           email: data.email,
           roles: data.roles ?? [],
+          home_id: data.home?.home_id ?? null,
+          home: data.home ?? null,
         };
 
         set({ token: data.access_token, user, isAuthenticated: true });
@@ -54,6 +70,40 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         set({ token: null, user: null, isAuthenticated: false });
       },
+
+      refreshHome: async () => {
+        try {
+          const res = await api.getMyHome();
+          const home: Home = res.data;
+          const currentUser = get().user;
+          if (currentUser) {
+            set({
+              user: {
+                ...currentUser,
+                home_id: home.home_id,
+                home,
+              },
+            });
+          }
+          return home;
+        } catch (error) {
+          console.warn("[authStore] Could not refresh home status", error);
+          return null;
+        }
+      },
+
+      setHome: (home: Home) => {
+        const currentUser = get().user;
+        if (currentUser) {
+          set({
+            user: {
+              ...currentUser,
+              home_id: home.home_id,
+              home,
+            },
+          });
+        }
+      },
     }),
     {
       name: "sentinel-auth",
@@ -61,7 +111,6 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         if (state?.token) {
           if (isTokenExpired(state.token)) {
-            // persist limpia el storage al recibir el setState con token: null
             useAuthStore.setState({
               token: null,
               user: null,
@@ -86,8 +135,7 @@ export const useAuthStore = create<AuthState>()(
   ),
 );
 
-// Selector externo para verificar roles (F-05)
 export const selectHasRole =
   (role: string) =>
   (state: AuthState): boolean =>
-    state.user?.roles.includes(role) ?? false;
+    state.hasRole(role);

@@ -75,19 +75,21 @@ export default function RegisterScreen() {
     const formData = new FormData();
     formData.append("full_name", name.trim());
     formData.append("document_id", documentId.trim() || "Sin documento");
-    formData.append("usuario_id", user?.id ?? "");
+    if (user?.home_id) {
+      formData.append("home_id", String(user.home_id));
+    }
     formData.append("photo", {
       uri: photoUri,
-      name: `employee_${Date.now()}.jpg`,
+      name: `resident_${Date.now()}.jpg`,
       type: "image/jpeg",
     } as any);
 
     try {
-      await api.createEmployee(formData);
+      await api.createResident(formData);
       setSuccess(true);
     } catch (error: any) {
       console.error(error);
-      const msg = error?.response?.data?.message || "No se pudo registrar el usuario. Intenta de nuevo.";
+      const msg = error?.response?.data?.message || "No se pudo registrar el residente. Intenta de nuevo.";
       customAlert("Error", msg);
     } finally {
       setLoading(false);
@@ -102,15 +104,15 @@ export default function RegisterScreen() {
       >
         <View style={styles.successContainer}>
           <CheckCircle size={64} color={C.success} />
-          <Text style={styles.successTitle}>Usuario registrado</Text>
+          <Text style={styles.successTitle}>Residente registrado</Text>
           <Text style={styles.successSub}>
-            {name} fue agregado al sistema de control de acceso facial.
+            {name} fue agregado exitosamente al sistema de reconocimiento facial de tu hogar.
           </Text>
           <TouchableOpacity
             style={styles.doneBtn}
             onPress={() => router.back()}
           >
-            <Text style={styles.doneTxt}>Volver a Usuarios</Text>
+            <Text style={styles.doneTxt}>Volver a Residentes</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.newBtn}
@@ -121,7 +123,7 @@ export default function RegisterScreen() {
               setSuccess(false);
             }}
           >
-            <Text style={styles.newTxt}>Registrar otro</Text>
+            <Text style={styles.newTxt}>Registrar otro residente</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -137,7 +139,7 @@ export default function RegisterScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <X size={22} color={C.text} />
         </TouchableOpacity>
-        <Text style={styles.topTitle}>Registrar usuario</Text>
+        <Text style={styles.topTitle}>Registrar residente</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -216,7 +218,7 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.btnTxt}>Registrar usuario</Text>
+              <Text style={styles.btnTxt}>Registrar residente</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>

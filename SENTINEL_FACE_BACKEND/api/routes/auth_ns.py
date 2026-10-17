@@ -16,13 +16,25 @@ change_password_model = ns.model("ChangePassword", {
     "new_password":     fields.String(required=True),
 })
 
+home_summary_model = ns.model("HomeSummary", {
+    "home_id":           fields.Integer,
+    "home_code":         fields.String,
+    "owner_name":        fields.String,
+    "service_status":    fields.String,
+    "suspension_reason": fields.String,
+    "max_residents":     fields.Integer,
+    "max_cameras":       fields.Integer,
+})
+
 auth_response = ns.model("AuthResponse", {
     "success":      fields.Boolean,
     "access_token": fields.String,
+    "user_id":      fields.Integer,
     "usuario_id":   fields.Integer,
     "name":         fields.String,
     "email":        fields.String,
     "roles":        fields.List(fields.String),
+    "home":         fields.Nested(home_summary_model, allow_null=True),
 })
 
 
@@ -35,8 +47,8 @@ class AuthLogin(Resource):
     @ns.response(401, "Credenciales inválidas")
     @ns.response(429, "Demasiados intentos")
     def post(self):
-        data     = request.get_json() or {}
-        email    = data.get("email", "").strip()
+        data = request.get_json() or {}
+        email = data.get("email", "").strip()
         password = data.get("password", "")
 
         if not email or not password:
@@ -46,11 +58,12 @@ class AuthLogin(Resource):
         if error:
             ns.abort(401, error)
 
-        # B-06: Dict directo — sin json.dumps
         token = create_access_token(identity={
-            "usuario_id": result["usuario_id"],
-            "email":      result["email"],
-            "roles":      result["roles"],
+            "user_id": result["user_id"],
+            "usuario_id": result["user_id"],
+            "home_id": result.get("home", {}).get("home_id") if result.get("home") else None,
+            "email": result["email"],
+            "roles": result["roles"],
         })
 
         return {**result, "access_token": token}
@@ -58,37 +71,41 @@ class AuthLogin(Resource):
 
 @ns.route("/refresh")
 class AuthRefresh(Resource):
-    @jwt_required(verify_type=False)  # B-03: Acepta tokens expirados para poder renovarlos
+    @jwt_required(verify_type=False)
     @ns.response(200, "Token renovado")
     @ns.response(401, "Token inválido o expirado")
     def post(self):
-        identity  = get_jwt_identity()
-        new_token = create_access_token(identity=identity)
-        return {"access_token": new_token}
+        identity = get_jwt_identity()
+        if not identity or not isinstance(identity, dict):
+            ns.abort(401, "Identidad no válida en token")
+
+        token = create_access_token(identity={
+            "user_id": identity.get("user_id") or identity.get("usuario_id"),
+            "usuario_id": identity.get("user_id") or identity.get("usuario_id"),
+            "home_id": identity.get("home_id"),
+            "email": identity.get("email"),
+            "roles": identity.get("roles", []),
+        })
+        return {"access_token": token}
 
 
 @ns.route("/change-password")
 class AuthChangePassword(Resource):
     @jwt_required()
     @ns.expect(change_password_model)
-    @ns.response(200, "Contraseña cambiada exitosamente")
+    @ns.response(200, "Contraseña actualizada exitosamente")
     @ns.response(400, "Datos inválidos")
-    @ns.response(401, "Token inválido o expirado")
+    @ns.response(401, "Contraseña actual incorrecta")
     def post(self):
         identity = get_jwt_identity()
-        usuario_id = identity.get("usuario_id")
+        user_id = identity.get("user_id") or identity.get("usuario_id")
         data = request.get_json() or {}
         current_password = data.get("current_password", "")
         new_password = data.get("new_password", "")
 
-        if not current_password or not new_password:
-            ns.abort(400, "Contraseña actual y nueva son requeridas")
-
-        success, error = change_user_password(usuario_id, current_password, new_password)
+        success, error = change_user_password(user_id, current_password, new_password)
         if not success:
-            ns.abort(400, error)
+            code = 401 if "incorrecta" in error else 400
+            ns.abort(code, error)
 
-        return {"success": True, "message": "Contraseña cambiada exitosamente"}
-
-
-
+        return {"success": True, "message": "Contraseña actualizada exitosamente"}
