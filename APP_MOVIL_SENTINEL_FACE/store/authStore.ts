@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -28,9 +29,54 @@ interface AuthState {
 }
 
 const secureStorage = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === "web" || typeof window === "undefined") {
+      try {
+        return typeof localStorage !== "undefined" ? localStorage.getItem(key) : null;
+      } catch {
+        return null;
+      }
+    }
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === "web" || typeof window === "undefined") {
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem(key, value);
+        }
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch {
+      // ignore
+    }
+  },
+  removeItem: async (key: string): Promise<void> => {
+    if (Platform.OS === "web" || typeof window === "undefined") {
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.removeItem(key);
+        }
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch {
+      // ignore
+    }
+  },
 };
 
 export const useAuthStore = create<AuthState>()(

@@ -12,15 +12,25 @@
     "android": {
       "predictiveBackGestureEnabled": false
     },
-    "splash": {
-      "image": "./assets/images/facial_scan_bg.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "web": {
-      "output": "static"
+      "bundler": "metro"
     },
-    "plugins": ["expo-router", "expo-secure-store", "expo-web-browser"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-font",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/facial_scan_bg.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ],
+      "expo-status-bar"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

@@ -1,4 +1,3 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
@@ -28,7 +27,7 @@ function RootNavigator() {
   }
 
   return (
-    <ThemeProvider value={darkMode ? DarkTheme : DefaultTheme}>
+    <>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(admin)" options={{ gestureEnabled: false }} />
@@ -36,7 +35,7 @@ function RootNavigator() {
       </Stack>
       <StatusBar style={darkMode ? "light" : "dark"} />
       <CustomAlert />
-    </ThemeProvider>
+    </>
   );
 }
 
