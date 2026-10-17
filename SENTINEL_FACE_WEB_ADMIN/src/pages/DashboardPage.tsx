@@ -29,11 +29,13 @@ export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [chartKey, setChartKey] = useState<number>(Date.now());
 
   const fetchStats = async () => {
     try {
       const data = await statsService.getDashboardStats();
       setStats(data);
+      setChartKey(Date.now());
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
     } finally {
@@ -48,6 +50,7 @@ export const DashboardPage: React.FC = () => {
 
   const handleRefresh = () => {
     setRefreshing(true);
+    setChartKey(Date.now());
     fetchStats();
   };
 
@@ -198,8 +201,8 @@ export const DashboardPage: React.FC = () => {
 
         <div className="h-72 w-full">
           {stats?.grafica_7_dias && stats.grafica_7_dias.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.grafica_7_dias}>
+            <ResponsiveContainer key={`container-${chartKey}`} width="100%" height="100%">
+              <AreaChart key={`chart-${chartKey}`} data={stats.grafica_7_dias}>
                 <defs>
                   <linearGradient id="colorConcedidos" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -223,22 +226,30 @@ export const DashboardPage: React.FC = () => {
                   }}
                 />
                 <Area
+                  key={`concedidos-${chartKey}`}
                   type="monotone"
                   dataKey="concedidos"
                   stroke="#10b981"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#colorConcedidos)"
                   name="Concedidos"
+                  isAnimationActive={true}
+                  animationDuration={1300}
+                  animationEasing="ease-out"
                 />
                 <Area
+                  key={`denegados-${chartKey}`}
                   type="monotone"
                   dataKey="denegados"
                   stroke="#ef4444"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#colorDenegados)"
                   name="Denegados"
+                  isAnimationActive={true}
+                  animationDuration={1300}
+                  animationEasing="ease-out"
                 />
               </AreaChart>
             </ResponsiveContainer>

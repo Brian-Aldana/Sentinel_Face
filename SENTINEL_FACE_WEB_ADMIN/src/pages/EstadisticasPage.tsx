@@ -31,12 +31,14 @@ import { DashboardStats } from '../types';
 export const EstadisticasPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [chartKey, setChartKey] = useState<number>(Date.now());
 
   const fetchStats = async () => {
     try {
       setLoading(true);
       const data = await statsService.getDashboardStats();
       setStats(data);
+      setChartKey(Date.now());
     } catch (err) {
       console.error('Error fetching statistics:', err);
     } finally {
@@ -178,8 +180,8 @@ export const EstadisticasPage: React.FC = () => {
 
           <div className="h-72 w-full">
             {stats?.grafica_7_dias && stats.grafica_7_dias.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.grafica_7_dias} barGap={4}>
+              <ResponsiveContainer key={`barchart-container-${chartKey}`} width="100%" height="100%">
+                <BarChart key={`barchart-${chartKey}`} data={stats.grafica_7_dias} barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis dataKey="fecha" stroke="#64748b" tick={{ fontSize: 11 }} />
                   <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
@@ -193,9 +195,9 @@ export const EstadisticasPage: React.FC = () => {
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="concedidos" fill="#10b981" name="Concedidos" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="denegados" fill="#ef4444" name="Denegados" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="spoofing" fill="#f59e0b" name="Spoofing" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="concedidos" fill="#10b981" name="Concedidos" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1200} />
+                  <Bar dataKey="denegados" fill="#ef4444" name="Denegados" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1200} />
+                  <Bar dataKey="spoofing" fill="#f59e0b" name="Spoofing" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1200} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -218,8 +220,8 @@ export const EstadisticasPage: React.FC = () => {
 
             <div className="h-56 w-full mt-4">
               {pieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+                <ResponsiveContainer key={`pie-container-${chartKey}`} width="100%" height="100%">
+                  <PieChart key={`piechart-${chartKey}`}>
                     <Pie
                       data={pieData}
                       cx="50%"
@@ -228,6 +230,8 @@ export const EstadisticasPage: React.FC = () => {
                       outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
+                      isAnimationActive={true}
+                      animationDuration={1200}
                     >
                       {pieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />

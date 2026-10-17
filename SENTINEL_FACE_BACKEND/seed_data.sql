@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS hogar_estado_historial (
 TRUNCATE TABLE hogar_estado_historial;
 TRUNCATE TABLE security_alerts;
 TRUNCATE TABLE access_logs;
+TRUNCATE TABLE audit_log;
 TRUNCATE TABLE employees;
 TRUNCATE TABLE usuarios_roles;
 DELETE FROM usuarios WHERE usuario_id > 0;
