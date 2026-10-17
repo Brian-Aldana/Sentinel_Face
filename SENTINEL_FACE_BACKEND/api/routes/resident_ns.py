@@ -8,7 +8,6 @@ ns = Namespace("residents", description="Gestión de residentes autorizados del 
 
 resident_model = ns.model("Resident", {
     "resident_id":   fields.Integer,
-    "employee_id":   fields.Integer,  # alias
     "home_id":       fields.Integer,
     "full_name":     fields.String,
     "document_id":   fields.String,
@@ -32,12 +31,10 @@ class ResidentList(Resource):
         roles = identity.get("roles", []) if isinstance(identity, dict) else []
         home_id = None
 
-        # Si es titular de hogar, aislar automáticamente a su hogar
-        if "home_admin" in roles or "hogar_admin" in roles:
+        if "home_admin" in roles:
             home_id = identity.get("home_id")
         else:
-            # Si es admin/superadmin, permitir filtrar opcionalmente por home_id
-            home_param = request.args.get("home_id") or request.args.get("hogar_id")
+            home_param = request.args.get("home_id")
             if home_param:
                 try:
                     home_id = int(home_param)
@@ -46,10 +43,7 @@ class ResidentList(Resource):
 
         include_inactive = request.args.get("include_inactive", "false").lower() == "true"
         residents = resident_controller.get_all(home_id=home_id, include_inactive=include_inactive)
-        # Add employee_id alias in output
-        for r in residents:
-            r["employee_id"] = r.get("resident_id")
-        return {"residents": residents, "employees": residents}
+        return {"residents": residents}
 
     @home_admin_required
     @ns.response(201, "Residente registrado exitosamente")
@@ -64,15 +58,14 @@ class ResidentList(Resource):
             ns.abort(400, "Nombre y fotografía son requeridos")
 
         identity = get_jwt_identity()
-        user_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else None
+        user_id = identity.get("user_id") if isinstance(identity, dict) else None
         roles = identity.get("roles", []) if isinstance(identity, dict) else []
 
-        # Determinar home_id
         home_id = None
-        if "home_admin" in roles or "hogar_admin" in roles:
+        if "home_admin" in roles:
             home_id = identity.get("home_id")
         else:
-            home_param = request.form.get("home_id") or request.form.get("hogar_id")
+            home_param = request.form.get("home_id")
             if home_param:
                 try:
                     home_id = int(home_param)
@@ -103,7 +96,6 @@ class ResidentItem(Resource):
         resident, error = resident_controller.get_by_id(resident_id)
         if error:
             ns.abort(404, error)
-        resident["employee_id"] = resident.get("resident_id")
         return resident
 
     @home_admin_required
@@ -111,7 +103,7 @@ class ResidentItem(Resource):
     @ns.response(404, "No encontrado")
     def delete(self, resident_id):
         identity = get_jwt_identity()
-        user_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else None
+        user_id = identity.get("user_id") if isinstance(identity, dict) else None
         ok, error = resident_controller.remove(resident_id, user_id)
         if error:
             ns.abort(404, error)
@@ -137,7 +129,7 @@ class ResidentDeactivate(Resource):
     @ns.response(404, "No encontrado")
     def patch(self, resident_id):
         identity = get_jwt_identity()
-        user_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else None
+        user_id = identity.get("user_id") if isinstance(identity, dict) else None
         ok, error = resident_controller.deactivate(resident_id, user_id)
         if error:
             ns.abort(400, error)
@@ -151,7 +143,7 @@ class ResidentActivate(Resource):
     @ns.response(404, "No encontrado")
     def patch(self, resident_id):
         identity = get_jwt_identity()
-        user_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else None
+        user_id = identity.get("user_id") if isinstance(identity, dict) else None
         ok, error = resident_controller.activate(resident_id, user_id)
         if error:
             ns.abort(400, error)

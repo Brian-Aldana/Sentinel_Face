@@ -3,99 +3,93 @@ import {
   Home,
   Plus,
   Search,
-  Filter,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
-  Clock,
-  ShieldAlert,
-  Users,
-  MapPin,
-  Mail,
-  Loader2,
   RefreshCw,
   Ban,
   Check,
   History,
-  FileText,
+  MapPin,
+  Mail,
+  Loader2,
+  ShieldAlert,
+  Clock,
 } from 'lucide-react';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
-import { hogarService } from '../services/hogarService';
-import { Hogar, EstadoServicio, HogarHistorialItem } from '../types';
+import { homeService } from '../services/homeService';
+import { Home as HomeType, ServiceStatus, HomeStatusHistoryItem } from '../types';
 
 export const HogaresPage: React.FC = () => {
-  const [hogares, setHogares] = useState<Hogar[]>([]);
+  const [homes, setHomes] = useState<HomeType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('TODOS');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
   // Modal para Nuevo Hogar
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    codigo_hogar: '',
-    nombre_titular: '',
-    direccion: '',
-    telefono: '',
-    email_contacto: '',
-    estado_servicio: 'ACTIVO' as EstadoServicio,
-    limite_personas: 10,
-    limite_camaras: 2,
-    notas: '',
+    home_code: '',
+    owner_name: '',
+    address: '',
+    phone: '',
+    contact_email: '',
+    service_status: 'ACTIVE' as ServiceStatus,
+    max_residents: 10,
+    max_cameras: 2,
+    notes: '',
   });
 
   // Modal para Cambiar Estado (Suspender / Denegar / Activar)
-  const [selectedHogar, setSelectedHogar] = useState<Hogar | null>(null);
+  const [selectedHome, setSelectedHome] = useState<HomeType | null>(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState<EstadoServicio>('SUSPENDIDO');
-  const [motivoSuspension, setMotivoSuspension] = useState('');
+  const [newStatus, setNewStatus] = useState<ServiceStatus>('SUSPENDED');
+  const [suspensionReason, setSuspensionReason] = useState('');
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
 
   // Modal para Historial de Estados de un Hogar
-  const [historialHogar, setHistorialHogar] = useState<Hogar | null>(null);
-  const [isHistorialOpen, setIsHistorialOpen] = useState(false);
-  const [historialItems, setHistorialItems] = useState<HogarHistorialItem[]>([]);
-  const [historialLoading, setHistorialLoading] = useState(false);
+  const [historyHome, setHistoryHome] = useState<HomeType | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyItems, setHistoryItems] = useState<HomeStatusHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
-  const fetchHogares = async () => {
+  const fetchHomes = async () => {
     try {
       setLoading(true);
-      const data = await hogarService.getHogares();
-      setHogares(Array.isArray(data) ? data : []);
+      const data = await homeService.getHomes();
+      setHomes(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Error fetching hogares:', err);
+      console.error('Error fetching homes:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchHogares();
+    fetchHomes();
   }, []);
 
-  const handleCreateHogar = async (e: React.FormEvent) => {
+  const handleCreateHome = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateLoading(true);
     setCreateError(null);
 
     try {
-      await hogarService.createHogar(formData);
+      await homeService.createHome(formData);
       setIsCreateOpen(false);
       setFormData({
-        codigo_hogar: '',
-        nombre_titular: '',
-        direccion: '',
-        telefono: '',
-        email_contacto: '',
-        estado_servicio: 'ACTIVO',
-        limite_personas: 10,
-        limite_camaras: 2,
-        notas: '',
+        home_code: '',
+        owner_name: '',
+        address: '',
+        phone: '',
+        contact_email: '',
+        service_status: 'ACTIVE',
+        max_residents: 10,
+        max_cameras: 2,
+        notes: '',
       });
-      await fetchHogares();
+      await fetchHomes();
     } catch (err: any) {
       setCreateError(
         err.response?.data?.message || 'Error al registrar el nuevo hogar'
@@ -105,81 +99,69 @@ export const HogaresPage: React.FC = () => {
     }
   };
 
-  const handleOpenStatusModal = (hogar: Hogar, statusToSet: EstadoServicio) => {
-    setSelectedHogar(hogar);
+  const handleOpenStatusModal = (home: HomeType, statusToSet: ServiceStatus) => {
+    setSelectedHome(home);
     setNewStatus(statusToSet);
-    setMotivoSuspension(hogar.motivo_suspension || '');
+    setSuspensionReason(home.suspension_reason || '');
     setStatusError(null);
     setIsStatusModalOpen(true);
   };
 
   const handleConfirmStatusChange = async () => {
-    if (!selectedHogar) return;
+    if (!selectedHome) return;
     setStatusLoading(true);
     setStatusError(null);
 
     try {
-      await hogarService.setHogarStatus(
-        (selectedHogar.home_id || selectedHogar.hogar_id)!,
+      await homeService.setHomeStatus(
+        selectedHome.home_id,
         newStatus,
-        motivoSuspension
+        suspensionReason
       );
-      // Cerramos la modal de inmediato
       setIsStatusModalOpen(false);
-      // Actualizamos la lista de hogares de inmediato
-      await fetchHogares();
+      await fetchHomes();
     } catch (err: any) {
-      console.error('Error cambiando estado del hogar:', err);
+      console.error('Error changing home status:', err);
       setStatusError(err.response?.data?.message || 'Error al actualizar el estado del servicio');
     } finally {
       setStatusLoading(false);
     }
   };
 
-  const handleOpenHistorial = async (hogar: Hogar) => {
-    setHistorialHogar(hogar);
-    setIsHistorialOpen(true);
-    setHistorialLoading(true);
+  const handleOpenHistory = async (home: HomeType) => {
+    setHistoryHome(home);
+    setIsHistoryOpen(true);
+    setHistoryLoading(true);
     try {
-      const homeId = (hogar.home_id || hogar.hogar_id)!;
-      const items = await hogarService.getHogarHistorial(homeId);
-      setHistorialItems(items);
+      const items = await homeService.getHomeHistory(home.home_id);
+      setHistoryItems(items);
     } catch (err) {
-      console.error('Error al cargar historial de estados:', err);
-      setHistorialItems([]);
+      console.error('Error loading status history:', err);
+      setHistoryItems([]);
     } finally {
-      setHistorialLoading(false);
+      setHistoryLoading(false);
     }
   };
 
   // Métricas agregadas de los hogares
-  const totalHogares = hogares.length;
-  const activosCount = hogares.filter((h) => h.estado_servicio === 'ACTIVO' || h.service_status === 'ACTIVE').length;
-  const suspendidosCount = hogares.filter((h) => h.estado_servicio === 'SUSPENDIDO' || h.service_status === 'SUSPENDED').length;
-  const denegadosCount = hogares.filter((h) => h.estado_servicio === 'DENEGADO' || h.service_status === 'DENIED').length;
-  const pruebaCount = hogares.filter((h) => h.estado_servicio === 'PRUEBA' || h.service_status === 'TRIAL').length;
+  const totalHomes = homes.length;
+  const activeCount = homes.filter((h) => h.service_status === 'ACTIVE').length;
+  const suspendedCount = homes.filter((h) => h.service_status === 'SUSPENDED').length;
+  const deniedCount = homes.filter((h) => h.service_status === 'DENIED').length;
+  const trialCount = homes.filter((h) => h.service_status === 'TRIAL').length;
 
-  const filteredHogares = hogares.filter((h) => {
+  const filteredHomes = homes.filter((h) => {
     const q = search.toLowerCase();
-    const nombre = (h.nombre_titular || h.owner_name || '').toLowerCase();
-    const codigo = (h.codigo_hogar || h.home_code || '').toLowerCase();
-    const direccion = (h.direccion || h.address || '').toLowerCase();
-    const email = (h.email_contacto || h.contact_email || '').toLowerCase();
+    const nameMatch = (h.owner_name || '').toLowerCase().includes(q);
+    const codeMatch = (h.home_code || '').toLowerCase().includes(q);
+    const addressMatch = (h.address || '').toLowerCase().includes(q);
+    const emailMatch = (h.contact_email || '').toLowerCase().includes(q);
 
-    const matchesSearch =
-      nombre.includes(q) ||
-      codigo.includes(q) ||
-      direccion.includes(q) ||
-      email.includes(q);
+    const matchesSearch = nameMatch || codeMatch || addressMatch || emailMatch;
 
-    const status = h.service_status || h.estado_servicio;
     const matchesFilter =
-      filterStatus === 'TODOS' ||
-      status === filterStatus ||
-      (filterStatus === 'ACTIVO' && (status === 'ACTIVE' || status === 'ACTIVO')) ||
-      (filterStatus === 'SUSPENDIDO' && (status === 'SUSPENDED' || status === 'SUSPENDIDO')) ||
-      (filterStatus === 'DENEGADO' && (status === 'DENIED' || status === 'DENEGADO')) ||
-      (filterStatus === 'PRUEBA' && (status === 'TRIAL' || status === 'PRUEBA'));
+      filterStatus === 'ALL' ||
+      h.service_status === filterStatus;
 
     return matchesSearch && matchesFilter;
   });
@@ -198,7 +180,7 @@ export const HogaresPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchHogares}
+            onClick={fetchHomes}
             className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-colors"
             title="Refrescar lista"
           >
@@ -218,23 +200,23 @@ export const HogaresPage: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
         <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
           <span className="text-[11px] font-medium text-slate-400 block">Total Hogares</span>
-          <span className="text-2xl font-bold text-white mt-1 block">{totalHogares}</span>
+          <span className="text-2xl font-bold text-white mt-1 block">{totalHomes}</span>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl border-l-2 border-l-emerald-500">
           <span className="text-[11px] font-medium text-emerald-400 block">Activos</span>
-          <span className="text-2xl font-bold text-emerald-400 mt-1 block">{activosCount}</span>
+          <span className="text-2xl font-bold text-emerald-400 mt-1 block">{activeCount}</span>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl border-l-2 border-l-amber-500">
           <span className="text-[11px] font-medium text-amber-400 block">Suspendidos</span>
-          <span className="text-2xl font-bold text-amber-400 mt-1 block">{suspendidosCount}</span>
+          <span className="text-2xl font-bold text-amber-400 mt-1 block">{suspendedCount}</span>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl border-l-2 border-l-rose-500">
           <span className="text-[11px] font-medium text-rose-400 block">Denegados</span>
-          <span className="text-2xl font-bold text-rose-400 mt-1 block">{denegadosCount}</span>
+          <span className="text-2xl font-bold text-rose-400 mt-1 block">{deniedCount}</span>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl border-l-2 border-l-cyan-500 col-span-2 sm:col-span-1">
           <span className="text-[11px] font-medium text-cyan-400 block">En Prueba</span>
-          <span className="text-2xl font-bold text-cyan-400 mt-1 block">{pruebaCount}</span>
+          <span className="text-2xl font-bold text-cyan-400 mt-1 block">{trialCount}</span>
         </div>
       </div>
 
@@ -254,17 +236,23 @@ export const HogaresPage: React.FC = () => {
 
         {/* Status Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
-          {['TODOS', 'ACTIVO', 'SUSPENDIDO', 'DENEGADO', 'PRUEBA'].map((status) => (
+          {[
+            { key: 'ALL', label: 'TODOS' },
+            { key: 'ACTIVE', label: 'ACTIVO' },
+            { key: 'SUSPENDED', label: 'SUSPENDIDO' },
+            { key: 'DENIED', label: 'DENEGADO' },
+            { key: 'TRIAL', label: 'PRUEBA' },
+          ].map((item) => (
             <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
+              key={item.key}
+              onClick={() => setFilterStatus(item.key)}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                filterStatus === status
+                filterStatus === item.key
                   ? 'bg-cyan-500 text-slate-950 font-semibold shadow-md shadow-cyan-500/20'
                   : 'bg-slate-950 text-slate-400 border border-slate-800/80 hover:text-slate-200 hover:border-slate-700'
               }`}
             >
-              {status}
+              {item.label}
             </button>
           ))}
         </div>
@@ -276,7 +264,7 @@ export const HogaresPage: React.FC = () => {
           <RefreshCw className="w-5 h-5 text-cyan-400 animate-spin" />
           <span>Cargando hogares clientes...</span>
         </div>
-      ) : filteredHogares.length === 0 ? (
+      ) : filteredHomes.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
           <Home className="w-12 h-12 text-slate-600 mx-auto mb-3" />
           <h3 className="text-base font-semibold text-white">No se encontraron hogares</h3>
@@ -299,19 +287,19 @@ export const HogaresPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {filteredHogares.map((hogar) => {
-                  const homeId = hogar.home_id || hogar.hogar_id || 0;
-                  const homeCode = hogar.home_code || hogar.codigo_hogar || '';
-                  const ownerName = hogar.owner_name || hogar.nombre_titular || '';
-                  const address = hogar.address || hogar.direccion || 'Sin dirección registrada';
-                  const email = hogar.contact_email || hogar.email_contacto || '';
-                  const serviceStatus = hogar.service_status || hogar.estado_servicio || 'ACTIVE';
-                  const suspensionReason = hogar.suspension_reason || hogar.motivo_suspension;
-                  const totalResidents = hogar.total_residents ?? hogar.total_personas ?? 0;
-                  const maxResidents = hogar.max_residents ?? hogar.limite_personas ?? 10;
-                  const maxCameras = hogar.max_cameras ?? hogar.limite_camaras ?? 2;
-                  const totalAccesses = hogar.total_accesos ?? hogar.total_accesses ?? 0;
-                  const activeAlerts = hogar.active_alerts ?? hogar.alertas_activas ?? 0;
+                {filteredHomes.map((home) => {
+                  const homeId = home.home_id;
+                  const homeCode = home.home_code;
+                  const ownerName = home.owner_name;
+                  const address = home.address || 'Sin dirección registrada';
+                  const email = home.contact_email;
+                  const serviceStatus = home.service_status;
+                  const suspensionReason = home.suspension_reason;
+                  const totalResidents = home.total_residents ?? 0;
+                  const maxResidents = home.max_residents ?? 10;
+                  const maxCameras = home.max_cameras ?? 2;
+                  const totalAccesses = home.total_accesses ?? 0;
+                  const activeAlerts = home.active_alerts ?? 0;
 
                   return (
                     <tr
@@ -391,51 +379,51 @@ export const HogaresPage: React.FC = () => {
                       </td>
 
                       {/* Acciones de Proveedor */}
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Botón Ver Historial */}
-                        <button
-                          onClick={() => handleOpenHistorial(hogar)}
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-colors flex items-center gap-1"
-                          title="Ver historial de cambios de estado"
-                        >
-                          <History className="w-3.5 h-3.5 text-cyan-400" />
-                          <span>Historial</span>
-                        </button>
-
-                        {/* Botón Cambiar Estado */}
-                        {serviceStatus === 'ACTIVE' || serviceStatus === 'ACTIVO' ? (
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Botón Ver Historial */}
                           <button
-                            onClick={() => handleOpenStatusModal(hogar, 'SUSPENDIDO')}
-                            className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 font-medium transition-colors flex items-center gap-1"
-                            title="Suspender servicio temporalmente"
+                            onClick={() => handleOpenHistory(home)}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-colors flex items-center gap-1"
+                            title="Ver historial de cambios de estado"
                           >
-                            <Ban className="w-3.5 h-3.5" />
-                            <span>Suspender</span>
+                            <History className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>Historial</span>
                           </button>
-                        ) : (
-                          <button
-                            onClick={() => handleOpenStatusModal(hogar, 'ACTIVO')}
-                            className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-medium transition-colors flex items-center gap-1"
-                            title="Reactivar servicio"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Activar</span>
-                          </button>
-                        )}
 
-                        <button
-                          onClick={() => handleOpenStatusModal(hogar, 'DENEGADO')}
-                          className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-medium transition-colors"
-                          title="Denegar o revocar servicio definitivamente"
-                        >
-                          Denegar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                          {/* Botón Cambiar Estado */}
+                          {serviceStatus === 'ACTIVE' ? (
+                            <button
+                              onClick={() => handleOpenStatusModal(home, 'SUSPENDED')}
+                              className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 font-medium transition-colors flex items-center gap-1"
+                              title="Suspender servicio temporalmente"
+                            >
+                              <Ban className="w-3.5 h-3.5" />
+                              <span>Suspender</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleOpenStatusModal(home, 'ACTIVE')}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-medium transition-colors flex items-center gap-1"
+                              title="Reactivar servicio"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Activar</span>
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleOpenStatusModal(home, 'DENIED')}
+                            className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-medium transition-colors"
+                            title="Denegar o revocar servicio definitivamente"
+                          >
+                            Denegar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -453,7 +441,7 @@ export const HogaresPage: React.FC = () => {
             {createError}
           </div>
         )}
-        <form onSubmit={handleCreateHogar} className="space-y-4 text-xs">
+        <form onSubmit={handleCreateHome} className="space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-300 font-medium mb-1">
@@ -463,9 +451,9 @@ export const HogaresPage: React.FC = () => {
                 type="text"
                 required
                 placeholder="Ej. HOG-007"
-                value={formData.codigo_hogar}
+                value={formData.home_code}
                 onChange={(e) =>
-                  setFormData({ ...formData, codigo_hogar: e.target.value })
+                  setFormData({ ...formData, home_code: e.target.value })
                 }
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500"
               />
@@ -475,18 +463,18 @@ export const HogaresPage: React.FC = () => {
                 Estado Inicial
               </label>
               <select
-                value={formData.estado_servicio}
+                value={formData.service_status}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    estado_servicio: e.target.value as EstadoServicio,
+                    service_status: e.target.value as ServiceStatus,
                   })
                 }
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500"
               >
-                <option value="ACTIVO">ACTIVO</option>
-                <option value="PRUEBA">PRUEBA</option>
-                <option value="SUSPENDIDO">SUSPENDIDO</option>
+                <option value="ACTIVE">ACTIVO</option>
+                <option value="TRIAL">PRUEBA</option>
+                <option value="SUSPENDED">SUSPENDIDO</option>
               </select>
             </div>
           </div>
@@ -499,9 +487,9 @@ export const HogaresPage: React.FC = () => {
               type="text"
               required
               placeholder="Ej. Familia Rodríguez Castro"
-              value={formData.nombre_titular}
+              value={formData.owner_name}
               onChange={(e) =>
-                setFormData({ ...formData, nombre_titular: e.target.value })
+                setFormData({ ...formData, owner_name: e.target.value })
               }
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500"
             />
@@ -516,9 +504,9 @@ export const HogaresPage: React.FC = () => {
                 type="email"
                 required
                 placeholder="titular@correo.com"
-                value={formData.email_contacto}
+                value={formData.contact_email}
                 onChange={(e) =>
-                  setFormData({ ...formData, email_contacto: e.target.value })
+                  setFormData({ ...formData, contact_email: e.target.value })
                 }
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500"
               />
@@ -530,9 +518,9 @@ export const HogaresPage: React.FC = () => {
               <input
                 type="text"
                 placeholder="310 123 4567"
-                value={formData.telefono}
+                value={formData.phone}
                 onChange={(e) =>
-                  setFormData({ ...formData, telefono: e.target.value })
+                  setFormData({ ...formData, phone: e.target.value })
                 }
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500"
               />
@@ -546,9 +534,9 @@ export const HogaresPage: React.FC = () => {
             <input
               type="text"
               placeholder="Ej. Manzana C Casa 12, Barrio Pozo Azul"
-              value={formData.direccion}
+              value={formData.address}
               onChange={(e) =>
-                setFormData({ ...formData, direccion: e.target.value })
+                setFormData({ ...formData, address: e.target.value })
               }
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500"
             />
@@ -563,11 +551,11 @@ export const HogaresPage: React.FC = () => {
                 type="number"
                 min="1"
                 max="50"
-                value={formData.limite_personas}
+                value={formData.max_residents}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    limite_personas: parseInt(e.target.value) || 10,
+                    max_residents: parseInt(e.target.value) || 10,
                   })
                 }
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500"
@@ -581,11 +569,11 @@ export const HogaresPage: React.FC = () => {
                 type="number"
                 min="1"
                 max="10"
-                value={formData.limite_camaras}
+                value={formData.max_cameras}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    limite_camaras: parseInt(e.target.value) || 2,
+                    max_cameras: parseInt(e.target.value) || 2,
                   })
                 }
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-cyan-500"
@@ -617,7 +605,7 @@ export const HogaresPage: React.FC = () => {
       <Modal
         isOpen={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
-        title={`Cambiar Estado de Servicio — ${selectedHogar?.nombre_titular}`}
+        title={`Cambiar Estado de Servicio — ${selectedHome?.owner_name}`}
       >
         <div className="space-y-4 text-xs">
           {statusError && (
@@ -629,14 +617,14 @@ export const HogaresPage: React.FC = () => {
           <p className="text-slate-300 leading-relaxed">
             Está a punto de cambiar el estado del servicio para{' '}
             <span className="font-semibold text-white">
-              {selectedHogar?.nombre_titular} ({selectedHogar?.codigo_hogar})
+              {selectedHome?.owner_name} ({selectedHome?.home_code})
             </span>{' '}
             a <span className="font-bold text-cyan-400">{newStatus}</span>.
           </p>
 
-          {newStatus === 'DENEGADO' || newStatus === 'SUSPENDIDO' ? (
+          {newStatus === 'DENIED' || newStatus === 'SUSPENDED' ? (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs leading-relaxed">
-              <strong>Efecto inmediato:</strong> Al {newStatus.toLowerCase()} el servicio, los residentes no podrán acceder mediante reconocimiento facial en la puerta y la app móvil reflejará la suspensión automáticamente.
+              <strong>Efecto inmediato:</strong> Al suspender o denegar el servicio, los residentes no podrán acceder mediante reconocimiento facial en la puerta y la app móvil reflejará la suspensión automáticamente.
             </div>
           ) : (
             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
@@ -650,8 +638,8 @@ export const HogaresPage: React.FC = () => {
             </label>
             <textarea
               rows={3}
-              value={motivoSuspension}
-              onChange={(e) => setMotivoSuspension(e.target.value)}
+              value={suspensionReason}
+              onChange={(e) => setSuspensionReason(e.target.value)}
               placeholder="Ej. Falta de pago de mensualidad, solicitud del propietario, reactivación acordada..."
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
             />
@@ -670,13 +658,13 @@ export const HogaresPage: React.FC = () => {
               disabled={statusLoading}
               onClick={handleConfirmStatusChange}
               className={`px-4 py-2 rounded-xl font-semibold transition-colors flex items-center gap-1.5 ${
-                newStatus === 'ACTIVO'
+                newStatus === 'ACTIVE'
                   ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
                   : 'bg-rose-500 hover:bg-rose-400 text-white'
               }`}
             >
               {statusLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              <span>Confirmar {newStatus}</span>
+              <span>Confirmar {newStatus === 'ACTIVE' ? 'Activación' : newStatus === 'SUSPENDED' ? 'Suspensión' : 'Denegación'}</span>
             </button>
           </div>
         </div>
@@ -684,32 +672,32 @@ export const HogaresPage: React.FC = () => {
 
       {/* Modal: Historial de Estados de un Hogar */}
       <Modal
-        isOpen={isHistorialOpen}
-        onClose={() => setIsHistorialOpen(false)}
-        title={`Historial de Estados — ${historialHogar?.nombre_titular} (${historialHogar?.codigo_hogar})`}
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        title={`Historial de Estados — ${historyHome?.owner_name} (${historyHome?.home_code})`}
       >
         <div className="space-y-4 text-xs">
-          {historialLoading ? (
+          {historyLoading ? (
             <div className="py-8 text-center text-slate-400 flex items-center justify-center gap-2">
               <RefreshCw className="w-4 h-4 text-cyan-400 animate-spin" />
               <span>Cargando transiciones de estado...</span>
             </div>
-          ) : historialItems.length === 0 ? (
+          ) : historyItems.length === 0 ? (
             <div className="py-8 text-center text-slate-500">
               No hay transiciones de estado registradas para este hogar.
             </div>
           ) : (
             <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
-              {historialItems.map((item) => (
-                <div key={item.historial_id} className="relative">
+              {historyItems.map((item) => (
+                <div key={item.history_id} className="relative">
                   {/* Dot */}
                   <span
                     className={`absolute -left-[19px] top-1 w-3 h-3 rounded-full border-2 border-slate-900 ${
-                      item.estado_nuevo === 'ACTIVO'
+                      item.new_status === 'ACTIVE'
                         ? 'bg-emerald-400'
-                        : item.estado_nuevo === 'SUSPENDIDO'
+                        : item.new_status === 'SUSPENDED'
                         ? 'bg-amber-400'
-                        : item.estado_nuevo === 'DENEGADO'
+                        : item.new_status === 'DENIED'
                         ? 'bg-rose-400'
                         : 'bg-cyan-400'
                     }`}
@@ -718,13 +706,13 @@ export const HogaresPage: React.FC = () => {
                   <div className="bg-slate-950/80 border border-slate-800 p-3.5 rounded-xl space-y-1.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
-                        {item.estado_anterior ? (
+                        {item.previous_status ? (
                           <>
-                            <StatusBadge status={item.estado_anterior} />
+                            <StatusBadge status={item.previous_status as ServiceStatus} />
                             <span className="text-slate-500 text-[10px]">&rarr;</span>
                           </>
                         ) : null}
-                        <StatusBadge status={item.estado_nuevo} />
+                        <StatusBadge status={item.new_status} />
                       </div>
                       <span className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
                         <Clock className="w-3 h-3" />
@@ -733,11 +721,11 @@ export const HogaresPage: React.FC = () => {
                     </div>
 
                     <p className="text-slate-300 text-xs mt-1">
-                      {item.motivo || 'Sin motivo especificado'}
+                      {item.reason || 'Sin motivo especificado'}
                     </p>
 
                     <p className="text-[10px] text-slate-500 pt-1 border-t border-slate-800/60">
-                      Modificado por: <span className="text-slate-300 font-medium">{item.cambiado_por_nombre || 'Super Administrador'}</span>
+                      Modificado por: <span className="text-slate-300 font-medium">{item.changed_by_name || 'Super Administrador'}</span>
                     </p>
                   </div>
                 </div>
@@ -747,7 +735,7 @@ export const HogaresPage: React.FC = () => {
 
           <div className="pt-3 flex justify-end border-t border-slate-800">
             <button
-              onClick={() => setIsHistorialOpen(false)}
+              onClick={() => setIsHistoryOpen(false)}
               className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
             >
               Cerrar

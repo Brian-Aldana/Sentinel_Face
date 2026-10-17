@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
-  AreaChart,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,17 +13,13 @@ import {
   Legend,
 } from 'recharts';
 import {
-  TrendingUp,
-  ShieldCheck,
   ShieldAlert,
-  Users,
   Activity,
   CheckCircle,
-  AlertTriangle,
   RefreshCw,
   Award,
 } from 'lucide-react';
-import { statsService } from '../services/hogarService';
+import { statsService } from '../services/homeService';
 import { DashboardStats } from '../types';
 
 export const EstadisticasPage: React.FC = () => {
@@ -50,43 +44,48 @@ export const EstadisticasPage: React.FC = () => {
     fetchStats();
   }, []);
 
-  const hogares = stats?.hogares || {
-    total_hogares: 0,
-    hogares_activos: 0,
-    hogares_suspendidos: 0,
-    hogares_denegados: 0,
-    hogares_prueba: 0,
+  const homes = stats?.homes || {
+    total_homes: 0,
+    active_homes: 0,
+    suspended_homes: 0,
+    denied_homes: 0,
+    trial_homes: 0,
   };
 
-  const accesos = stats?.accesos || {
-    total_accesos_historico: 0,
-    accesos_hoy: 0,
-    accesos_concedidos_hoy: 0,
-    accesos_denegados_hoy: 0,
-    intentos_spoofing_hoy: 0,
+  const accesses = stats?.accesses || {
+    total_history_accesses: 0,
+    accesses_today: 0,
+    accesses_granted_today: 0,
+    accesses_denied_today: 0,
+    spoofing_attempts_today: 0,
   };
 
-  const alertas = stats?.alertas || {
-    total_alertas: 0,
-    alertas_pendientes: 0,
-    alertas_criticas_pendientes: 0,
-    alertas_spoofing: 0,
-    alertas_rostro_desconocido: 0,
+  const alerts = stats?.alerts || {
+    total_alerts: 0,
+    pending_alerts: 0,
+    critical_pending_alerts: 0,
+    spoofing_alerts: 0,
+    unknown_face_alerts: 0,
+  };
+
+  const residents = stats?.residents || {
+    total_residents: 0,
+    active_residents: 0,
   };
 
   // Datos para gráfico de pastel de estados
   const pieData = [
-    { name: 'Activos', value: hogares.hogares_activos, color: '#10b981' },
-    { name: 'Suspendidos', value: hogares.hogares_suspendidos, color: '#f59e0b' },
-    { name: 'Denegados', value: hogares.hogares_denegados, color: '#ef4444' },
-    { name: 'Prueba', value: hogares.hogares_prueba, color: '#06b6d4' },
+    { name: 'Activos', value: homes.active_homes, color: '#10b981' },
+    { name: 'Suspendidos', value: homes.suspended_homes, color: '#f59e0b' },
+    { name: 'Denegados', value: homes.denied_homes, color: '#ef4444' },
+    { name: 'Prueba', value: homes.trial_homes, color: '#06b6d4' },
   ].filter((d) => d.value > 0);
 
   // Tasa de efectividad anti-spoofing
-  const spoofingCount = alertas.alertas_spoofing || 0;
+  const spoofingCount = alerts.spoofing_alerts || 0;
   const tasaResolucionAlertas =
-    alertas.total_alertas > 0
-      ? (((alertas.total_alertas - alertas.alertas_pendientes) / alertas.total_alertas) * 100).toFixed(1)
+    alerts.total_alerts > 0
+      ? (((alerts.total_alerts - alerts.pending_alerts) / alerts.total_alerts) * 100).toFixed(1)
       : '100';
 
   return (
@@ -120,8 +119,8 @@ export const EstadisticasPage: React.FC = () => {
             <Award className="w-5 h-5 text-emerald-400" />
           </div>
           <p className="text-3xl font-bold text-white mt-2">
-            {hogares.total_hogares > 0
-              ? `${(((hogares.hogares_activos + hogares.hogares_prueba) / hogares.total_hogares) * 100).toFixed(0)}%`
+            {homes.total_homes > 0
+              ? `${(((homes.active_homes + homes.trial_homes) / homes.total_homes) * 100).toFixed(0)}%`
               : '0%'}
           </p>
           <p className="text-[11px] text-slate-500 mt-1">
@@ -134,7 +133,7 @@ export const EstadisticasPage: React.FC = () => {
             <span className="text-xs font-medium text-slate-400">Total Verificaciones</span>
             <Activity className="w-5 h-5 text-cyan-400" />
           </div>
-          <p className="text-3xl font-bold text-white mt-2">{accesos.total_accesos_historico}</p>
+          <p className="text-3xl font-bold text-white mt-2">{accesses.total_history_accesses}</p>
           <p className="text-[11px] text-slate-500 mt-1">
             Accesos faciales procesados por la API.
           </p>
@@ -179,11 +178,11 @@ export const EstadisticasPage: React.FC = () => {
           </div>
 
           <div className="h-72 w-full">
-            {stats?.grafica_7_dias && stats.grafica_7_dias.length > 0 ? (
+            {stats?.chart_7_days && stats.chart_7_days.length > 0 ? (
               <ResponsiveContainer key={`barchart-container-${chartKey}`} width="100%" height="100%">
-                <BarChart key={`barchart-${chartKey}`} data={stats.grafica_7_dias} barGap={4}>
+                <BarChart key={`barchart-${chartKey}`} data={stats.chart_7_days} barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="fecha" stroke="#64748b" tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
                   <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
                   <Tooltip
                     contentStyle={{
@@ -195,8 +194,8 @@ export const EstadisticasPage: React.FC = () => {
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="concedidos" fill="#10b981" name="Concedidos" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1200} />
-                  <Bar dataKey="denegados" fill="#ef4444" name="Denegados" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1200} />
+                  <Bar dataKey="granted" fill="#10b981" name="Concedidos" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1200} />
+                  <Bar dataKey="denied" fill="#ef4444" name="Denegados" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1200} />
                   <Bar dataKey="spoofing" fill="#f59e0b" name="Spoofing" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1200} />
                 </BarChart>
               </ResponsiveContainer>
@@ -215,7 +214,7 @@ export const EstadisticasPage: React.FC = () => {
               Distribución de Hogares por Estado
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Proporción sobre el total de {hogares.total_hogares} hogares registrados.
+              Proporción sobre el total de {homes.total_homes} hogares registrados.
             </p>
 
             <div className="h-56 w-full mt-4">
@@ -278,10 +277,10 @@ export const EstadisticasPage: React.FC = () => {
             <span className="text-slate-400 block font-medium">Hogares Suspendidos o Denegados</span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-amber-400">
-                {hogares.hogares_suspendidos + hogares.hogares_denegados}
+                {homes.suspended_homes + homes.denied_homes}
               </span>
               <span className="text-slate-500">
-                de {hogares.total_hogares} hogares ({hogares.total_hogares > 0 ? (((hogares.hogares_suspendidos + hogares.hogares_denegados) / hogares.total_hogares) * 100).toFixed(0) : 0}%)
+                de {homes.total_homes} hogares ({homes.total_homes > 0 ? (((homes.suspended_homes + homes.denied_homes) / homes.total_homes) * 100).toFixed(0) : 0}%)
               </span>
             </div>
             <p className="text-[11px] text-slate-500">
@@ -293,12 +292,12 @@ export const EstadisticasPage: React.FC = () => {
             <span className="text-slate-400 block font-medium">Personas Enroladas en Total</span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-white">
-                {stats?.personas?.total_personas_registradas || 0}
+                {residents.total_residents}
               </span>
               <span className="text-slate-500">residentes</span>
             </div>
             <p className="text-[11px] text-slate-500">
-              Promedio de {hogares.total_hogares > 0 ? ((stats?.personas?.total_personas_registradas || 0) / hogares.total_hogares).toFixed(1) : 0} personas por hogar.
+              Promedio de {homes.total_homes > 0 ? (residents.total_residents / homes.total_homes).toFixed(1) : 0} personas por hogar.
             </p>
           </div>
 
@@ -306,7 +305,7 @@ export const EstadisticasPage: React.FC = () => {
             <span className="text-slate-400 block font-medium">Alertas de Suplantación Activas</span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-rose-400">
-                {alertas.alertas_criticas_pendientes}
+                {alerts.critical_pending_alerts}
               </span>
               <span className="text-slate-500">críticas por atender</span>
             </div>

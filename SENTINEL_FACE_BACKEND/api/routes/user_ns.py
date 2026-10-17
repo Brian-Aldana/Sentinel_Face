@@ -10,7 +10,6 @@ ns = Namespace("users", description="Gestión de usuarios del sistema")
 
 user_model = ns.model("User", {
     "user_id":    fields.Integer,
-    "usuario_id": fields.Integer,
     "home_id":    fields.Integer,
     "full_name":  fields.String,
     "email":      fields.String,
@@ -41,9 +40,7 @@ class UserList(Resource):
         include_inactive = request.args.get("include_inactive", "false").lower() == "true"
         home_id = request.args.get("home_id")
         users = get_all(include_inactive, int(home_id) if home_id else None)
-        for u in users:
-            u["usuario_id"] = u.get("user_id")
-        return {"users": users, "usuarios": users}
+        return {"users": users}
 
     @admin_required
     @ns.expect(create_user_model)
@@ -53,7 +50,7 @@ class UserList(Resource):
     def post(self):
         data = request.get_json() or {}
         identity = get_jwt_identity()
-        user_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else 1
+        user_id = identity.get("user_id") if isinstance(identity, dict) else 1
 
         result, err = create(
             data.get("full_name", ""),
@@ -78,7 +75,6 @@ class UserItem(Resource):
         u, err = get_by_id(user_id)
         if err:
             ns.abort(404, err)
-        u["usuario_id"] = u.get("user_id")
         return u
 
 
@@ -89,7 +85,7 @@ class UserDeactivate(Resource):
     @ns.response(404, "No encontrado")
     def patch(self, user_id):
         identity = get_jwt_identity()
-        req_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else 1
+        req_id = identity.get("user_id") if isinstance(identity, dict) else 1
         ok, err = deactivate(user_id, req_id)
         if err:
             ns.abort(400, err)
@@ -103,7 +99,7 @@ class UserActivate(Resource):
     @ns.response(404, "No encontrado")
     def patch(self, user_id):
         identity = get_jwt_identity()
-        req_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else 1
+        req_id = identity.get("user_id") if isinstance(identity, dict) else 1
         ok, err = activate(user_id, req_id)
         if err:
             ns.abort(400, err)
@@ -120,7 +116,7 @@ class UserRoles(Resource):
         data = request.get_json() or {}
         role_id = data.get("role_id")
         identity = get_jwt_identity()
-        req_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else 1
+        req_id = identity.get("user_id") if isinstance(identity, dict) else 1
         ok, err = assign_role(user_id, role_id, req_id)
         if err:
             ns.abort(400, err)
@@ -134,7 +130,7 @@ class UserRoles(Resource):
         data = request.get_json() or {}
         role_id = data.get("role_id")
         identity = get_jwt_identity()
-        req_id = identity.get("user_id") or identity.get("usuario_id") if isinstance(identity, dict) else 1
+        req_id = identity.get("user_id") if isinstance(identity, dict) else 1
         ok, err = remove_role(user_id, role_id, req_id)
         if err:
             ns.abort(400, err)

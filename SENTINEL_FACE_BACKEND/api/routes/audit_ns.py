@@ -31,10 +31,10 @@ class AuditList(Resource):
         identity = get_jwt_identity()
         roles = identity.get("roles", []) if isinstance(identity, dict) else []
         home_id = None
-        if "home_admin" in roles or "hogar_admin" in roles:
+        if "home_admin" in roles:
             home_id = identity.get("home_id")
         else:
-            param = request.args.get("home_id") or request.args.get("hogar_id")
+            param = request.args.get("home_id")
             if param:
                 try:
                     home_id = int(param)

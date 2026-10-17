@@ -1,5 +1,4 @@
-export type ServiceStatus = 'ACTIVE' | 'SUSPENDED' | 'DENIED' | 'TRIAL' | 'ACTIVO' | 'SUSPENDIDO' | 'DENEGADO' | 'PRUEBA';
-export type EstadoServicio = ServiceStatus;
+export type ServiceStatus = 'ACTIVE' | 'SUSPENDED' | 'DENIED' | 'TRIAL';
 
 export interface Home {
   home_id: number;
@@ -15,27 +14,10 @@ export interface Home {
   notes?: string;
   total_residents?: number;
   active_alerts?: number;
+  total_accesses?: number;
   created_at: string;
   updated_at?: string;
-
-  // Compatibility aliases
-  hogar_id?: number;
-  codigo_hogar?: string;
-  nombre_titular?: string;
-  direccion?: string;
-  telefono?: string;
-  email_contacto?: string;
-  estado_servicio?: ServiceStatus;
-  motivo_suspension?: string;
-  limite_personas?: number;
-  limite_camaras?: number;
-  total_personas?: number;
-  alertas_activas?: number;
-  total_accesos?: number;
-  total_accesses?: number;
 }
-
-export type Hogar = Home;
 
 export interface HomeStatusHistoryItem {
   history_id: number;
@@ -45,17 +27,7 @@ export interface HomeStatusHistoryItem {
   reason?: string;
   changed_by_name?: string;
   created_at: string;
-
-  // Compatibility aliases
-  historial_id?: number;
-  hogar_id?: number;
-  estado_anterior?: string;
-  estado_nuevo?: ServiceStatus;
-  motivo?: string;
-  cambiado_por_nombre?: string;
 }
-
-export type HogarHistorialItem = HomeStatusHistoryItem;
 
 export interface Resident {
   resident_id: number;
@@ -66,16 +38,10 @@ export interface Resident {
   registered_by?: string;
   created_at: string;
   updated_at?: string;
-
-  // Compatibility aliases
-  employee_id?: number;
 }
-
-export type Employee = Resident;
 
 export interface AuthUser {
   user_id: number;
-  usuario_id?: number;
   name: string;
   email: string;
   roles: string[];
@@ -125,17 +91,7 @@ export interface DashboardStats {
     description?: string;
     resolved: number;
     created_at: string;
-    codigo_hogar?: string;
-    nombre_titular?: string;
   }>;
-
-  // Compatibility aliases
-  hogares?: any;
-  personas?: any;
-  accesos?: any;
-  alertas?: any;
-  grafica_7_dias?: any;
-  ultimas_alertas?: any;
 }
 
 export interface SecurityAlert {
@@ -151,15 +107,12 @@ export interface SecurityAlert {
   created_at: string;
   home_code?: string;
   owner_name?: string;
-  codigo_hogar?: string;
-  nombre_titular?: string;
 }
 
 export interface AccessLog {
   log_id: number;
   home_id?: number;
   resident_id?: number;
-  employee_id?: number;
   access_result: 'GRANTED' | 'DENIED';
   confidence: number;
   liveness: 'REAL' | 'SPOOFING' | 'UNKNOWN';
@@ -180,5 +133,4 @@ export interface AuditLog {
   user_name?: string;
   home_code?: string;
   owner_name?: string;
-  admin_name?: string;
 }

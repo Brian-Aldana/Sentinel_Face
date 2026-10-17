@@ -38,9 +38,6 @@ def find_all(home_id: int = None, limit=50, page=1):
                     r["detail"] = json.loads(r["detail"])
                 except Exception:
                     pass
-            r["usuario_name"] = r.get("user_name")
-            r["codigo_hogar"] = r.get("home_code")
-            r["nombre_titular"] = r.get("owner_name")
         return {
             "items": rows,
             "total": total,
@@ -83,9 +80,9 @@ def find_by_id(audit_id: int):
 
 def record(user_id=None, action: str = "", target_table: str = None,
            target_id: int = None, detail: dict = None, ip_address: str = None,
-           home_id: int = None, **kwargs):
-    actual_user_id = user_id or kwargs.get("usuario_id")
-    actual_home_id = home_id or kwargs.get("hogar_id")
+           home_id: int = None):
+    actual_user_id = user_id
+    actual_home_id = home_id
 
     if ip_address is None:
         try:

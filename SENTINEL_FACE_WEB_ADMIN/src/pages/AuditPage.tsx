@@ -4,17 +4,17 @@ import api from '../services/api';
 
 interface AuditItem {
   audit_id: number;
-  hogar_id?: number;
-  usuario_id?: number;
-  usuario_name?: string;
+  home_id?: number;
+  user_id?: number;
+  user_name?: string;
   action: string;
   target_table?: string;
   target_id?: number;
   detail?: any;
   ip_address?: string;
   created_at: string;
-  codigo_hogar?: string;
-  nombre_titular?: string;
+  home_code?: string;
+  owner_name?: string;
 }
 
 export const AuditPage: React.FC = () => {
@@ -28,7 +28,6 @@ export const AuditPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const res = await api.get('/audit');
-      // Aseguramos que siempre sea un array para evitar crashes
       const items = Array.isArray(res.data)
         ? res.data
         : res.data?.audit || res.data?.items || [];
@@ -49,9 +48,9 @@ export const AuditPage: React.FC = () => {
   const getActionBadgeColor = (action: string) => {
     if (action.includes('CREATE')) {
       return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    } else if (action.includes('SUSPENDIDO')) {
+    } else if (action.includes('SUSPENDED') || action.includes('SUSPENDIDO')) {
       return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-    } else if (action.includes('DENEGADO')) {
+    } else if (action.includes('DENIED') || action.includes('DENEGADO')) {
       return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
     } else if (action.includes('RESOLVE')) {
       return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
@@ -64,10 +63,10 @@ export const AuditPage: React.FC = () => {
   const filteredLogs = logs.filter((log) => {
     const q = search.toLowerCase();
     const actionMatch = log.action.toLowerCase().includes(q);
-    const userMatch = (log.usuario_name || '').toLowerCase().includes(q);
+    const userMatch = (log.user_name || '').toLowerCase().includes(q);
     const targetMatch = (log.target_table || '').toLowerCase().includes(q);
-    const hogarMatch = (log.codigo_hogar || '').toLowerCase().includes(q) || (log.nombre_titular || '').toLowerCase().includes(q);
-    return actionMatch || userMatch || targetMatch || hogarMatch;
+    const homeMatch = (log.home_code || '').toLowerCase().includes(q) || (log.owner_name || '').toLowerCase().includes(q);
+    return actionMatch || userMatch || targetMatch || homeMatch;
   });
 
   return (
@@ -157,18 +156,18 @@ export const AuditPage: React.FC = () => {
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 font-semibold text-[10px]">
-                          {log.usuario_name ? log.usuario_name[0] : 'U'}
+                          {log.user_name ? log.user_name[0] : 'U'}
                         </div>
                         <span className="font-medium text-slate-200">
-                          {log.usuario_name || 'Sistema'}
+                          {log.user_name || 'Sistema'}
                         </span>
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      {log.codigo_hogar ? (
+                      {log.home_code ? (
                         <div>
-                          <span className="font-mono text-cyan-400 font-semibold">{log.codigo_hogar}</span>
-                          <span className="text-[11px] text-slate-400 block truncate max-w-[160px]">{log.nombre_titular}</span>
+                          <span className="font-mono text-cyan-400 font-semibold">{log.home_code}</span>
+                          <span className="text-[11px] text-slate-400 block truncate max-w-[160px]">{log.owner_name}</span>
                         </div>
                       ) : (
                         <span className="font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded text-[11px]">

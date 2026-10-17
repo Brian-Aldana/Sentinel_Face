@@ -143,7 +143,7 @@ export default function AuditScreen() {
   const filteredLogs = logs.filter((log) => {
     const term = search.toLowerCase();
     const actionMatch = log.action.toLowerCase().includes(term);
-    const userMatch = (log.usuario_name ?? "").toLowerCase().includes(term);
+    const userMatch = (log.user_name ?? "").toLowerCase().includes(term);
     const tableMatch = (log.target_table ?? "").toLowerCase().includes(term);
     return actionMatch || userMatch || tableMatch;
   });
@@ -232,7 +232,7 @@ export default function AuditScreen() {
                   </Text>
                   <View style={styles.userRow}>
                     <User size={12} color={C.textMuted} />
-                    <Text style={styles.userName}>{item.usuario_name ?? "Sistema"}</Text>
+                    <Text style={styles.userName}>{item.user_name ?? "Sistema"}</Text>
                   </View>
                 </View>
                 <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>

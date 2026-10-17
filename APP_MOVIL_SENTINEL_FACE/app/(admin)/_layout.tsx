@@ -16,7 +16,7 @@ export default function AdminLayout() {
   const C = useThemeColors();
 
   const isAuthorized =
-    hasRole("home_admin") || hasRole("hogar_admin") || hasRole("admin");
+    hasRole("home_admin") || hasRole("admin");
 
   if (!isAuthenticated || !isAuthorized) return <Redirect href="/" />;
 

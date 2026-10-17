@@ -23,7 +23,7 @@ def home_admin_required(fn):
     def wrapper(*args, **kwargs):
         identity = get_jwt_identity()
         roles = identity.get("roles", []) if isinstance(identity, dict) else []
-        allowed = {"home_admin", "hogar_admin", "admin", "superadmin"}
+        allowed = {"home_admin", "admin", "superadmin"}
         if not allowed.intersection(roles):
             abort(403, "Se requiere el rol de titular de hogar o administrador para esta operación")
         return fn(*args, **kwargs)

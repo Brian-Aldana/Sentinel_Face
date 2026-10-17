@@ -31,16 +31,12 @@ export interface Resident {
   updated_at?: string;
   photo_url?: string | null;
   embedding?: string | null;
-
-  // Compatibility aliases
-  employee_id?: number;
 }
 
 export interface AccessLog {
   log_id: number;
   home_id?: number;
   resident_id?: number | null;
-  employee_id?: number | null;
   full_name: string | null;
   access_result: "GRANTED" | "DENIED";
   confidence: number;
@@ -75,9 +71,6 @@ export interface User {
   roles: string[];
   created_at: string;
   last_login?: string | null;
-
-  // Compatibility aliases
-  usuario_id?: number;
 }
 
 export interface Role {
@@ -99,10 +92,4 @@ export interface AuditEntry {
   ip_address: string | null;
   created_at: string;
   user_name?: string | null;
-  usuario_name?: string | null;
 }
-
-// Backward compatibility aliases
-export type Employee = Resident;
-export type Usuario = User;
-export type Hogar = Home;

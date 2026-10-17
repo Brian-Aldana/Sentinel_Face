@@ -5,8 +5,7 @@ export const authService = {
   async login(email: string, password: string): Promise<AuthUser> {
     const response = await api.post('/auth/login', { email, password });
     const user: AuthUser = {
-      user_id: response.data.user_id || response.data.usuario_id,
-      usuario_id: response.data.usuario_id || response.data.user_id,
+      user_id: response.data.user_id,
       name: response.data.name,
       email: response.data.email,
       roles: response.data.roles || [],

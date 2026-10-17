@@ -26,12 +26,10 @@ def login(email: str, password: str):
     return {
         "success": True,
         "user_id": user_id,
-        "usuario_id": user_id,  # backward compatibility alias
         "name": user["full_name"],
         "email": user["email"],
         "roles": user.get("roles", []),
         "home": home_data,
-        "hogar": home_data,  # backward compatibility alias
     }, None
 
 

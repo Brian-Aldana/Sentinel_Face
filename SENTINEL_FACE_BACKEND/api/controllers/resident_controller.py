@@ -50,7 +50,7 @@ def register(name: str, document_id: str, user_id: int, image_bytes: bytes, home
 
     AuditModel.record(user_id=user_id, home_id=home_id, action="CREATE_RESIDENT", target_table="residents",
                       target_id=new_id, detail={"full_name": clean_name, "document_id": document_id})
-    return {"success": True, "resident_id": new_id, "employee_id": new_id}, None
+    return {"success": True, "resident_id": new_id}, None
 
 
 def get_image(resident_id: int):

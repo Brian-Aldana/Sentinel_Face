@@ -9,7 +9,7 @@ import {
   Search,
   Eye,
 } from 'lucide-react';
-import { alertService } from '../services/hogarService';
+import { alertService } from '../services/homeService';
 import { SecurityAlert } from '../types';
 
 export const AlertsPage: React.FC = () => {

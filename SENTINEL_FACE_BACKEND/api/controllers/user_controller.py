@@ -25,7 +25,7 @@ def create(full_name: str, email: str, password: str, roles: list, requestor_id:
 
     AuditModel.record(user_id=requestor_id, home_id=home_id, action="CREATE_USER", target_table="users",
                       target_id=new_id, detail={"full_name": full_name, "email": email, "roles": roles})
-    return {"success": True, "user_id": new_id, "usuario_id": new_id}, None
+    return {"success": True, "user_id": new_id}, None
 
 
 def deactivate(user_id: int, requestor_id: int = None):

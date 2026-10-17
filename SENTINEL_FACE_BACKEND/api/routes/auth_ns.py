@@ -30,7 +30,6 @@ auth_response = ns.model("AuthResponse", {
     "success":      fields.Boolean,
     "access_token": fields.String,
     "user_id":      fields.Integer,
-    "usuario_id":   fields.Integer,
     "name":         fields.String,
     "email":        fields.String,
     "roles":        fields.List(fields.String),
@@ -60,7 +59,6 @@ class AuthLogin(Resource):
 
         token = create_access_token(identity={
             "user_id": result["user_id"],
-            "usuario_id": result["user_id"],
             "home_id": result.get("home", {}).get("home_id") if result.get("home") else None,
             "email": result["email"],
             "roles": result["roles"],
@@ -80,8 +78,7 @@ class AuthRefresh(Resource):
             ns.abort(401, "Identidad no válida en token")
 
         token = create_access_token(identity={
-            "user_id": identity.get("user_id") or identity.get("usuario_id"),
-            "usuario_id": identity.get("user_id") or identity.get("usuario_id"),
+            "user_id": identity.get("user_id"),
             "home_id": identity.get("home_id"),
             "email": identity.get("email"),
             "roles": identity.get("roles", []),
@@ -98,7 +95,7 @@ class AuthChangePassword(Resource):
     @ns.response(401, "Contraseña actual incorrecta")
     def post(self):
         identity = get_jwt_identity()
-        user_id = identity.get("user_id") or identity.get("usuario_id")
+        user_id = identity.get("user_id") if isinstance(identity, dict) else identity
         data = request.get_json() or {}
         current_password = data.get("current_password", "")
         new_password = data.get("new_password", "")

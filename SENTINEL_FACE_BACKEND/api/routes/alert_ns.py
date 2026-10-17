@@ -21,8 +21,7 @@ alert_model = ns.model("Alert", {
 })
 
 resolve_model = ns.model("Resolve", {
-    "user_id":    fields.Integer(required=False),
-    "usuario_id": fields.Integer(required=False),
+    "user_id": fields.Integer(required=False),
 })
 
 
@@ -38,10 +37,10 @@ class AlertList(Resource):
         identity = get_jwt_identity()
         roles = identity.get("roles", []) if isinstance(identity, dict) else []
         home_id = None
-        if "home_admin" in roles or "hogar_admin" in roles:
+        if "home_admin" in roles:
             home_id = identity.get("home_id")
         else:
-            param = request.args.get("home_id") or request.args.get("hogar_id")
+            param = request.args.get("home_id")
             if param:
                 try:
                     home_id = int(param)
@@ -88,9 +87,9 @@ class AlertResolve(Resource):
     def patch(self, alert_id):
         data = request.get_json(silent=True) or {}
         identity = get_jwt_identity()
-        user_id = data.get("user_id") or data.get("usuario_id")
+        user_id = data.get("user_id")
         if not user_id and isinstance(identity, dict):
-            user_id = identity.get("user_id") or identity.get("usuario_id")
+            user_id = identity.get("user_id")
 
         ok, error = resolve(alert_id, user_id)
         if error:

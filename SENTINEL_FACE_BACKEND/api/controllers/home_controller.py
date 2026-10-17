@@ -35,7 +35,7 @@ def create(data: dict, user_id: int = None):
         detail={"home_code": data["home_code"], "owner_name": data["owner_name"]}
     )
 
-    return {"success": True, "home_id": new_id, "hogar_id": new_id, "message": "Hogar registrado exitosamente"}, None
+    return {"success": True, "home_id": new_id, "message": "Home registered successfully"}, None
 
 
 def update(home_id: int, data: dict, user_id: int = None):

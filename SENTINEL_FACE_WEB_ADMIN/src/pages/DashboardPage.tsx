@@ -22,7 +22,7 @@ import {
 } from 'recharts';
 import { MetricCard } from '../components/MetricCard';
 import { StatusBadge } from '../components/StatusBadge';
-import { statsService, alertService } from '../services/hogarService';
+import { statsService, alertService } from '../services/homeService';
 import { DashboardStats } from '../types';
 
 export const DashboardPage: React.FC = () => {
@@ -74,28 +74,33 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
-  const hogares = stats?.hogares || {
-    total_hogares: 0,
-    hogares_activos: 0,
-    hogares_suspendidos: 0,
-    hogares_denegados: 0,
-    hogares_prueba: 0,
+  const homes = stats?.homes || {
+    total_homes: 0,
+    active_homes: 0,
+    suspended_homes: 0,
+    denied_homes: 0,
+    trial_homes: 0,
   };
 
-  const accesos = stats?.accesos || {
-    total_accesos_historico: 0,
-    accesos_hoy: 0,
-    accesos_concedidos_hoy: 0,
-    accesos_denegados_hoy: 0,
-    intentos_spoofing_hoy: 0,
+  const accesses = stats?.accesses || {
+    total_history_accesses: 0,
+    accesses_today: 0,
+    accesses_granted_today: 0,
+    accesses_denied_today: 0,
+    spoofing_attempts_today: 0,
   };
 
-  const alertas = stats?.alertas || {
-    total_alertas: 0,
-    alertas_pendientes: 0,
-    alertas_criticas_pendientes: 0,
-    alertas_spoofing: 0,
-    alertas_rostro_desconocido: 0,
+  const alerts = stats?.alerts || {
+    total_alerts: 0,
+    pending_alerts: 0,
+    critical_pending_alerts: 0,
+    spoofing_alerts: 0,
+    unknown_face_alerts: 0,
+  };
+
+  const residents = stats?.residents || {
+    total_residents: 0,
+    active_residents: 0,
   };
 
   return (
@@ -133,18 +138,18 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <MetricCard
           title="Hogares Registrados"
-          value={hogares.total_hogares}
-          subtitle={`${hogares.hogares_activos} activos · ${hogares.hogares_suspendidos + hogares.hogares_denegados} suspendidos`}
+          value={homes.total_homes}
+          subtitle={`${homes.active_homes} activos · ${homes.suspended_homes + homes.denied_homes} suspendidos`}
           icon={<Home className="w-6 h-6" />}
           color="cyan"
-          trend={`${hogares.hogares_activos > 0 ? ((hogares.hogares_activos / (hogares.total_hogares || 1)) * 100).toFixed(0) : 0}% operativos`}
+          trend={`${homes.active_homes > 0 ? ((homes.active_homes / (homes.total_homes || 1)) * 100).toFixed(0) : 0}% operativos`}
           trendType="positive"
         />
 
         <MetricCard
           title="Accesos Hoy"
-          value={accesos.accesos_hoy}
-          subtitle={`${accesos.accesos_concedidos_hoy} concedidos · ${accesos.accesos_denegados_hoy} denegados`}
+          value={accesses.accesses_today}
+          subtitle={`${accesses.accesses_granted_today} concedidos · ${accesses.accesses_denied_today} denegados`}
           icon={<Activity className="w-6 h-6" />}
           color="emerald"
           trend="En tiempo real"
@@ -153,18 +158,18 @@ export const DashboardPage: React.FC = () => {
 
         <MetricCard
           title="Intentos de Suplantación"
-          value={accesos.intentos_spoofing_hoy}
+          value={accesses.spoofing_attempts_today}
           subtitle="Ataques con foto / pantalla bloqueados"
           icon={<ShieldAlert className="w-6 h-6" />}
           color="rose"
-          trend={accesos.intentos_spoofing_hoy > 0 ? 'Alerta activa' : '0 incidentes hoy'}
-          trendType={accesos.intentos_spoofing_hoy > 0 ? 'negative' : 'positive'}
+          trend={accesses.spoofing_attempts_today > 0 ? 'Alerta activa' : '0 incidentes hoy'}
+          trendType={accesses.spoofing_attempts_today > 0 ? 'negative' : 'positive'}
         />
 
         <MetricCard
           title="Personas Autorizadas"
-          value={stats?.personas?.total_personas_registradas || 0}
-          subtitle={`${stats?.personas?.personas_con_biometria || 0} con vector facial activo`}
+          value={residents.total_residents}
+          subtitle={`${residents.active_residents} con vector facial activo`}
           icon={<UserCheck className="w-6 h-6" />}
           color="indigo"
           trend="100% verificado"
@@ -200,9 +205,9 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="h-72 w-full">
-          {stats?.grafica_7_dias && stats.grafica_7_dias.length > 0 ? (
+          {stats?.chart_7_days && stats.chart_7_days.length > 0 ? (
             <ResponsiveContainer key={`container-${chartKey}`} width="100%" height="100%">
-              <AreaChart key={`chart-${chartKey}`} data={stats.grafica_7_dias}>
+              <AreaChart key={`chart-${chartKey}`} data={stats.chart_7_days}>
                 <defs>
                   <linearGradient id="colorConcedidos" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -214,7 +219,7 @@ export const DashboardPage: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="fecha" stroke="#64748b" tick={{ fontSize: 11 }} />
+                <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
                 <Tooltip
                   contentStyle={{
@@ -228,7 +233,7 @@ export const DashboardPage: React.FC = () => {
                 <Area
                   key={`concedidos-${chartKey}`}
                   type="monotone"
-                  dataKey="concedidos"
+                  dataKey="granted"
                   stroke="#10b981"
                   strokeWidth={2.5}
                   fillOpacity={1}
@@ -241,7 +246,7 @@ export const DashboardPage: React.FC = () => {
                 <Area
                   key={`denegados-${chartKey}`}
                   type="monotone"
-                  dataKey="denegados"
+                  dataKey="denied"
                   stroke="#ef4444"
                   strokeWidth={2.5}
                   fillOpacity={1}
@@ -277,13 +282,13 @@ export const DashboardPage: React.FC = () => {
               <div>
                 <div className="flex justify-between text-xs font-medium mb-1.5">
                   <span className="text-slate-300">Activos</span>
-                  <span className="text-emerald-400 font-semibold">{hogares.hogares_activos}</span>
+                  <span className="text-emerald-400 font-semibold">{homes.active_homes}</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 rounded-full"
                     style={{
-                      width: `${(hogares.hogares_activos / (hogares.total_hogares || 1)) * 100}%`,
+                      width: `${(homes.active_homes / (homes.total_homes || 1)) * 100}%`,
                     }}
                   ></div>
                 </div>
@@ -292,13 +297,13 @@ export const DashboardPage: React.FC = () => {
               <div>
                 <div className="flex justify-between text-xs font-medium mb-1.5">
                   <span className="text-slate-300">Suspendidos</span>
-                  <span className="text-amber-400 font-semibold">{hogares.hogares_suspendidos}</span>
+                  <span className="text-amber-400 font-semibold">{homes.suspended_homes}</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                   <div
                     className="h-full bg-amber-500 rounded-full"
                     style={{
-                      width: `${(hogares.hogares_suspendidos / (hogares.total_hogares || 1)) * 100}%`,
+                      width: `${(homes.suspended_homes / (homes.total_homes || 1)) * 100}%`,
                     }}
                   ></div>
                 </div>
@@ -307,13 +312,13 @@ export const DashboardPage: React.FC = () => {
               <div>
                 <div className="flex justify-between text-xs font-medium mb-1.5">
                   <span className="text-slate-300">Denegados / Cancelados</span>
-                  <span className="text-rose-400 font-semibold">{hogares.hogares_denegados}</span>
+                  <span className="text-rose-400 font-semibold">{homes.denied_homes}</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                   <div
                     className="h-full bg-rose-500 rounded-full"
                     style={{
-                      width: `${(hogares.hogares_denegados / (hogares.total_hogares || 1)) * 100}%`,
+                      width: `${(homes.denied_homes / (homes.total_homes || 1)) * 100}%`,
                     }}
                   ></div>
                 </div>
@@ -322,13 +327,13 @@ export const DashboardPage: React.FC = () => {
               <div>
                 <div className="flex justify-between text-xs font-medium mb-1.5">
                   <span className="text-slate-300">Periodo de Prueba</span>
-                  <span className="text-cyan-400 font-semibold">{hogares.hogares_prueba}</span>
+                  <span className="text-cyan-400 font-semibold">{homes.trial_homes}</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                   <div
                     className="h-full bg-cyan-500 rounded-full"
                     style={{
-                      width: `${(hogares.hogares_prueba / (hogares.total_hogares || 1)) * 100}%`,
+                      width: `${(homes.trial_homes / (homes.total_homes || 1)) * 100}%`,
                     }}
                   ></div>
                 </div>
@@ -368,8 +373,8 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {stats?.ultimas_alertas && stats.ultimas_alertas.length > 0 ? (
-              stats.ultimas_alertas.map((alert) => (
+            {stats?.recent_alerts && stats.recent_alerts.length > 0 ? (
+              stats.recent_alerts.map((alert) => (
                 <div
                   key={alert.alert_id}
                   className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-4 transition-colors hover:border-slate-700"
@@ -391,14 +396,14 @@ export const DashboardPage: React.FC = () => {
                             ? 'Intento de Suplantación (Spoofing)'
                             : alert.alert_type}
                         </span>
-                        {alert.codigo_hogar && (
+                        {alert.home_code && (
                           <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-cyan-400 font-mono">
-                            {alert.codigo_hogar}
+                            {alert.home_code}
                           </span>
                         )}
                       </div>
                       <p className="text-[11px] text-slate-400 mt-0.5">
-                        {alert.nombre_titular ? `Hogar: ${alert.nombre_titular} · ` : ''}
+                        {alert.owner_name ? `Hogar: ${alert.owner_name} · ` : ''}
                         {alert.created_at}
                       </p>
                     </div>

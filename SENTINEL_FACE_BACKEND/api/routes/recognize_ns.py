@@ -30,11 +30,8 @@ class Recognize(Resource):
 
         home_id = (
             request.headers.get("X-Home-Id")
-            or request.headers.get("X-Hogar-Id")
             or request.args.get("home_id")
-            or request.args.get("hogar_id")
             or request.form.get("home_id")
-            or request.form.get("hogar_id")
             or 1
         )
         try:

@@ -31,11 +31,10 @@ def recognize(frame_bytes_list: list, home_id: int = 1):
 
     residents = ResidentModel.get_all_active_embeddings(home_id=home_id)
     # Format embeddings list expected by face_logic
-    # face_logic expects items with {"employee_id" or "user_id", "embedding", "full_name"}
+    # face_logic expects items with {"user_id", "embedding", "full_name"}
     formatted_candidates = []
     for r in residents:
         formatted_candidates.append({
-            "employee_id": r["resident_id"],
             "user_id": r["resident_id"],
             "resident_id": r["resident_id"],
             "full_name": r["full_name"],

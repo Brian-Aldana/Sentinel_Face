@@ -226,4 +226,3 @@ def ensure_default_user():
         conn.close()
 
 
-ensure_default_usuario = ensure_default_user

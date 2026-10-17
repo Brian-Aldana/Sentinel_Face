@@ -8,22 +8,22 @@ from api.decorators import admin_required
 
 ns = Namespace("roles", description="Gestión de roles del sistema")
 
-role_model = ns.model("Rol", {
-    "role_id":        fields.Integer,
-    "name":           fields.String,
-    "description":    fields.String,
-    "is_active":      fields.Boolean,
-    "total_usuarios": fields.Integer,
-    "created_at":     fields.String,
+role_model = ns.model("Role", {
+    "role_id":     fields.Integer,
+    "name":        fields.String,
+    "description": fields.String,
+    "is_active":   fields.Boolean,
+    "total_users": fields.Integer,
+    "created_at":  fields.String,
 })
 
-create_model = ns.model("CrearRol", {
+create_model = ns.model("CreateRole", {
     "name":         fields.String(required=True),
     "description":  fields.String,
     "requestor_id": fields.Integer(required=True),
 })
 
-status_model = ns.model("CambioEstadoRol", {
+status_model = ns.model("ChangeRoleStatus", {
     "requestor_id": fields.Integer(required=True),
 })
 

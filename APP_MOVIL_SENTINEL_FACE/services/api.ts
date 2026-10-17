@@ -133,18 +133,6 @@ export const api = {
   deleteResident: (id: number) =>
     client.delete(`/residents/${id}`),
 
-  // Backwards compatibility aliases for employees
-  getEmployees: () => client.get("/residents"),
-  getEmployee: (id: number) => client.get(`/residents/${id}`),
-  createEmployee: (formData: FormData) =>
-    client.post("/residents", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
-  deactivateEmployee: (id: number, userId?: number | string) =>
-    client.patch(`/residents/${id}/deactivate`, { user_id: userId }),
-  activateEmployee: (id: number, userId?: number | string) =>
-    client.patch(`/residents/${id}/activate`, { user_id: userId }),
-
   // Registros de acceso (Access Logs)
   getLogs: (params?: { result?: string; limit?: number; page?: number }) =>
     client.get("/logs", { params }),
@@ -183,27 +171,21 @@ export const api = {
     client.patch(`/roles/${id}/activate`, { requestor_id: requestorId }),
 
   // Gestión de usuarios del sistema (Admin)
-  getUsuarios: (includeInactive = true) =>
-    client.get("/users", { params: { include_inactive: includeInactive } }),
-
   getUsers: (includeInactive = true) =>
     client.get("/users", { params: { include_inactive: includeInactive } }),
-
-  createUsuario: (fullName: string, email: string, password: string, roles: string[], requestorId?: number | string) =>
-    client.post("/users", { full_name: fullName, email, password, roles, requestor_id: requestorId ? Number(requestorId) : undefined }),
 
   createUser: (fullName: string, email: string, password: string, roles: string[], requestorId?: number | string) =>
     client.post("/users", { full_name: fullName, email, password, roles, requestor_id: requestorId ? Number(requestorId) : undefined }),
 
-  deactivateUsuario: (id: number, requestorId?: number | string) =>
+  deactivateUser: (id: number, requestorId?: number | string) =>
     client.patch(`/users/${id}/deactivate`, { requestor_id: requestorId ? Number(requestorId) : undefined }),
 
-  activateUsuario: (id: number, requestorId?: number | string) =>
+  activateUser: (id: number, requestorId?: number | string) =>
     client.patch(`/users/${id}/activate`, { requestor_id: requestorId ? Number(requestorId) : undefined }),
 
-  assignUsuarioRole: (userId: number, roleId: number, requestorId?: number | string) =>
+  assignUserRole: (userId: number, roleId: number, requestorId?: number | string) =>
     client.post(`/users/${userId}/roles`, { role_id: roleId, requestor_id: requestorId ? Number(requestorId) : undefined }),
 
-  removeUsuarioRole: (userId: number, roleId: number, requestorId?: number | string) =>
+  removeUserRole: (userId: number, roleId: number, requestorId?: number | string) =>
     client.delete(`/users/${userId}/roles`, { data: { role_id: roleId, requestor_id: requestorId ? Number(requestorId) : undefined } }),
 };

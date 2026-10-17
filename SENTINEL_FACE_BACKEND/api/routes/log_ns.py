@@ -10,7 +10,6 @@ log_model = ns.model("AccessLog", {
     "log_id":        fields.Integer,
     "home_id":       fields.Integer,
     "resident_id":   fields.Integer,
-    "employee_id":   fields.Integer,
     "access_result": fields.String,
     "confidence":    fields.Float,
     "liveness":      fields.String,
@@ -33,10 +32,10 @@ class LogList(Resource):
         identity = get_jwt_identity()
         roles = identity.get("roles", []) if isinstance(identity, dict) else []
         home_id = None
-        if "home_admin" in roles or "hogar_admin" in roles:
+        if "home_admin" in roles:
             home_id = identity.get("home_id")
         else:
-            param = request.args.get("home_id") or request.args.get("hogar_id")
+            param = request.args.get("home_id")
             if param:
                 try:
                     home_id = int(param)
@@ -44,10 +43,6 @@ class LogList(Resource):
                     pass
 
         data = get_all(result_filter=result_filter, home_id=home_id, limit=limit, page=page)
-        # Add employee_id alias for backward compatibility
-        for item in data["items"]:
-            item["employee_id"] = item.get("resident_id")
-
         return {
             "logs":     data["items"],
             "total":    data["total"],
@@ -66,7 +61,6 @@ class LogItem(Resource):
         log, error = get_by_id(log_id)
         if error:
             ns.abort(404, error)
-        log["employee_id"] = log.get("resident_id")
         return log
 
     @admin_required

@@ -43,9 +43,8 @@ export const useAuthStore = create<AuthState>()(
 
       hasRole: (role) => {
         const roles = get().user?.roles ?? [];
-        // Map hogar_admin to home_admin and vice versa for robust authorization
-        if (role === "home_admin" || role === "hogar_admin") {
-          return roles.includes("home_admin") || roles.includes("hogar_admin") || roles.includes("admin");
+        if (role === "home_admin") {
+          return roles.includes("home_admin") || roles.includes("admin");
         }
         return roles.includes(role);
       },
@@ -55,8 +54,8 @@ export const useAuthStore = create<AuthState>()(
         if (!data.success) throw new Error("Credenciales inválidas.");
 
         const user: AuthUser = {
-          id: String(data.user_id || data.usuario_id),
-          user_id: Number(data.user_id || data.usuario_id),
+          id: String(data.user_id),
+          user_id: Number(data.user_id),
           name: data.name,
           email: data.email,
           roles: data.roles ?? [],
