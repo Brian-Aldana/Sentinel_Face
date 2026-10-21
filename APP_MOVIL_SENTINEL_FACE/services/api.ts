@@ -109,7 +109,13 @@ export const api = {
   changePassword: (currentPassword: string, newPassword: string) =>
     client.post("/auth/change-password", { current_password: currentPassword, new_password: newPassword }),
 
-  getEmployees: () => client.get("/employees"),
+  // ── Gestión SaaS de Hogares ──
+  getMiHogar: () => client.get("/hogares/mi-hogar"),
+  getHogar: (id: number) => client.get(`/hogares/${id}`),
+
+  // ── Personas Autorizadas del Hogar (antes Employees) ──
+  getEmployees: (hogarId?: number) => client.get("/employees", { params: hogarId ? { hogar_id: hogarId } : {} }),
+  getPersonas: (hogarId?: number) => client.get("/employees", { params: hogarId ? { hogar_id: hogarId } : {} }),
 
   getEmployee: (id: number) => client.get(`/employees/${id}`),
 

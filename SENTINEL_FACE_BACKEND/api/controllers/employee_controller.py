@@ -8,8 +8,8 @@ def _sanitize(text: str) -> str:
     return re.sub(r"[^a-zA-Z0-9\sáéíóúÁÉÍÓÚñÑ\-\.]", "", text).strip()
 
 
-def get_all():
-    return EmployeeModel.find_all()
+def get_all(hogar_id: int = None):
+    return EmployeeModel.find_all(hogar_id)
 
 
 def get_by_id(employee_id: int):
@@ -19,7 +19,7 @@ def get_by_id(employee_id: int):
     return emp, None
 
 
-def register(name: str, document_id: str, usuario_id, image_bytes: bytes):
+def register(name: str, document_id: str, usuario_id, image_bytes: bytes, hogar_id: int = None):
     clean_name = _sanitize(name)
     if not clean_name:
         return None, "Nombre con caracteres inválidos"
@@ -31,7 +31,7 @@ def register(name: str, document_id: str, usuario_id, image_bytes: bytes):
 
     try:
         new_id = EmployeeModel.create(
-            clean_name, document_id or None, embedding.tobytes(), usuario_id, image_bytes
+            clean_name, document_id or None, embedding.tobytes(), usuario_id, image_bytes, hogar_id
         )
     except Exception as e:
         if "Duplicate" in str(e):
@@ -39,7 +39,7 @@ def register(name: str, document_id: str, usuario_id, image_bytes: bytes):
         return None, str(e)
 
     AuditModel.record(usuario_id, "CREATE_EMPLOYEE", "employees", new_id,
-                      {"full_name": clean_name, "document_id": document_id})
+                      {"full_name": clean_name, "document_id": document_id, "hogar_id": hogar_id})
     return {"success": True, "employee_id": new_id}, None
 
 

@@ -23,6 +23,7 @@ auth_response = ns.model("AuthResponse", {
     "name":         fields.String,
     "email":        fields.String,
     "roles":        fields.List(fields.String),
+    "hogar_id":     fields.Integer,
 })
 
 
@@ -51,6 +52,7 @@ class AuthLogin(Resource):
             "usuario_id": result["usuario_id"],
             "email":      result["email"],
             "roles":      result["roles"],
+            "hogar_id":   result.get("hogar_id"),
         })
 
         return {**result, "access_token": token}

@@ -105,11 +105,11 @@ export default function LoginScreen() {
           </Animated.View>
 
           <Text style={styles.title}>Sentinel Face</Text>
-          <Text style={styles.subtitle}>PANEL DE ADMINISTRACIÓN</Text>
+          <Text style={styles.subtitle}>SEGURIDAD BIOMÉTRICA RESIDENCIAL</Text>
 
           <View style={styles.loginCard}>
             <View style={styles.inputWrapper}>
-              <Text style={styles.label}>CORREO ADMINISTRADOR</Text>
+              <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
               <View style={styles.inputContainer}>
                 <Mail
                   color="rgba(255,255,255,0.4)"
@@ -117,7 +117,7 @@ export default function LoginScreen() {
                   style={styles.iconStyle}
                 />
                 <TextInput
-                  placeholder="admin@admin.com"
+                  placeholder="usuario@ejemplo.com"
                   placeholderTextColor="rgba(255,255,255,0.2)"
                   style={styles.input}
                   value={email}

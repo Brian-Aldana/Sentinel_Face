@@ -9,10 +9,37 @@ interface SettingsState {
   setNotifications: (value: boolean) => void;
 }
 
+import { Platform } from "react-native";
+
 const secureStorage = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+  getItem: async (key: string) => {
+    if (Platform.OS === "web") {
+      try {
+        return typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+      } catch {
+        return null;
+      }
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  setItem: async (key: string, value: string) => {
+    if (Platform.OS === "web") {
+      try {
+        if (typeof window !== "undefined") window.localStorage.setItem(key, value);
+      } catch {}
+      return;
+    }
+    return SecureStore.setItemAsync(key, value);
+  },
+  removeItem: async (key: string) => {
+    if (Platform.OS === "web") {
+      try {
+        if (typeof window !== "undefined") window.localStorage.removeItem(key);
+      } catch {}
+      return;
+    }
+    return SecureStore.deleteItemAsync(key);
+  },
 };
 
 export const useSettingsStore = create<SettingsState>()(

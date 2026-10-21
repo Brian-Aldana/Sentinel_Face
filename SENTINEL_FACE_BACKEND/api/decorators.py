@@ -10,8 +10,9 @@ def admin_required(fn):
         identity = get_jwt_identity()
         # identity ya es un dict — no necesita deserialización manual
         roles = identity.get("roles", []) if isinstance(identity, dict) else []
-        if "admin" not in roles:
-            abort(403, "Se requiere el rol 'admin' para esta operación")
+        allowed = {"admin", "superadmin", "hogar_admin"}
+        if not any(r in allowed for r in roles):
+            abort(403, "Se requiere rol de administrador para esta operación")
         return fn(*args, **kwargs)
 
     return wrapper

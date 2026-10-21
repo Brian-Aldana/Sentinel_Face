@@ -22,6 +22,7 @@ export default function RegisterScreen() {
   const C = useThemeColors();
   const styles = React.useMemo(() => getStyles(C), [C]);
   const user = useAuthStore((s) => s.user);
+  const hogar = useAuthStore((s) => s.hogar);
   const router = useRouter();
   const [name, setName] = useState("");
   const [documentId, setDocumentId] = useState("");
@@ -59,6 +60,28 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    // Validación de estado de servicio SaaS
+    if (hogar?.estado_servicio === "SUSPENDIDO" || hogar?.estado_servicio === "DENEGADO") {
+      customAlert(
+        "Servicio restringido",
+        `No es posible registrar personas mientras el servicio del hogar esté ${hogar.estado_servicio.toLowerCase()}.\n\nMotivo: "${hogar.motivo_suspension || 'Contacta al proveedor'}"`
+      );
+      return;
+    }
+
+    // Validación de cupo máximo del plan SaaS
+    if (
+      hogar?.total_personas !== undefined &&
+      hogar?.limite_personas !== undefined &&
+      hogar.total_personas >= hogar.limite_personas
+    ) {
+      customAlert(
+        "Límite de plan alcanzado",
+        `Tu hogar ha alcanzado el límite de ${hogar.limite_personas} personas autorizadas permitidas. Comunícate con Sentinel Face para ampliar tu suscripción.`
+      );
+      return;
+    }
+
     if (!name.trim()) {
       customAlert("Campo requerido", "Ingresa el nombre completo.");
       return;
@@ -66,7 +89,7 @@ export default function RegisterScreen() {
     if (!photoUri) {
       customAlert(
         "Foto requerida",
-        "Captura o selecciona una foto del usuario.",
+        "Captura o selecciona una foto clara y frontal del rostro.",
       );
       return;
     }
@@ -76,9 +99,12 @@ export default function RegisterScreen() {
     formData.append("full_name", name.trim());
     formData.append("document_id", documentId.trim() || "Sin documento");
     formData.append("usuario_id", user?.id ?? "");
+    if (hogar?.hogar_id || user?.hogar_id) {
+      formData.append("hogar_id", String(hogar?.hogar_id ?? user?.hogar_id));
+    }
     formData.append("photo", {
       uri: photoUri,
-      name: `employee_${Date.now()}.jpg`,
+      name: `persona_${Date.now()}.jpg`,
       type: "image/jpeg",
     } as any);
 
@@ -87,7 +113,7 @@ export default function RegisterScreen() {
       setSuccess(true);
     } catch (error: any) {
       console.error(error);
-      const msg = error?.response?.data?.message || "No se pudo registrar el usuario. Intenta de nuevo.";
+      const msg = error?.response?.data?.message || "No se pudo registrar la persona autorizada. Intenta de nuevo.";
       customAlert("Error", msg);
     } finally {
       setLoading(false);
@@ -102,15 +128,15 @@ export default function RegisterScreen() {
       >
         <View style={styles.successContainer}>
           <CheckCircle size={64} color={C.success} />
-          <Text style={styles.successTitle}>Usuario registrado</Text>
+          <Text style={styles.successTitle}>Persona registrada</Text>
           <Text style={styles.successSub}>
-            {name} fue agregado al sistema de control de acceso facial.
+            {name} fue agregado como persona autorizada del hogar {hogar?.nombre_titular ?? ""}.
           </Text>
           <TouchableOpacity
             style={styles.doneBtn}
             onPress={() => router.back()}
           >
-            <Text style={styles.doneTxt}>Volver a Usuarios</Text>
+            <Text style={styles.doneTxt}>Volver a Personas</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.newBtn}
@@ -121,7 +147,7 @@ export default function RegisterScreen() {
               setSuccess(false);
             }}
           >
-            <Text style={styles.newTxt}>Registrar otro</Text>
+            <Text style={styles.newTxt}>Registrar otro familiar</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -137,7 +163,7 @@ export default function RegisterScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <X size={22} color={C.text} />
         </TouchableOpacity>
-        <Text style={styles.topTitle}>Registrar usuario</Text>
+        <Text style={styles.topTitle}>Registrar persona autorizada</Text>
         <View style={{ width: 38 }} />
       </View>
 

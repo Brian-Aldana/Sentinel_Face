@@ -62,6 +62,32 @@ class HogarList(Resource):
             ns.abort(500, str(e))
 
 
+@ns.route("/mi-hogar")
+class HogarMiHogar(Resource):
+    @jwt_required()
+    def get(self):
+        """Obtiene la información y estadísticas del hogar asignado al usuario autenticado."""
+        identity = get_jwt_identity() or {}
+        hogar_id = identity.get("hogar_id")
+        if not hogar_id:
+            usuario_id = identity.get("usuario_id")
+            from api.models import usuario as UsuarioModel
+            user = UsuarioModel.find_by_id(usuario_id)
+            hogar_id = user.get("hogar_id") if user else None
+
+        if not hogar_id:
+            # Fallback para superadmin sin hogar específico asignado
+            hogar = HogarModel.find_by_id(1)
+            if hogar:
+                return hogar
+            ns.abort(404, "El usuario no tiene un hogar asignado")
+
+        hogar = HogarModel.find_by_id(hogar_id)
+        if not hogar:
+            ns.abort(404, "Hogar no encontrado")
+        return hogar
+
+
 @ns.route("/<int:hogar_id>")
 class HogarDetail(Resource):
     @jwt_required(optional=True)

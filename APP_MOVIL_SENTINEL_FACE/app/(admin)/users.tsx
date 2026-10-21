@@ -66,7 +66,8 @@ export default function UsersScreen() {
     }
     try {
       if (activeTab === "employees") {
-        const res = await api.getEmployees();
+        const hogarId = useAuthStore.getState().hogar?.hogar_id;
+        const res = await api.getEmployees(hogarId ?? undefined);
         setEmployees(res.data.employees ?? []);
       } else if (activeTab === "system_users") {
         const [resUsers, resRoles] = await Promise.all([
@@ -474,7 +475,7 @@ export default function UsersScreen() {
           }}
         >
           <Text style={[styles.tabButtonText, activeTab === "employees" && styles.tabButtonTextActive]}>
-            Personal
+            Personas del Hogar
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -485,7 +486,7 @@ export default function UsersScreen() {
           }}
         >
           <Text style={[styles.tabButtonText, activeTab === "system_users" && styles.tabButtonTextActive]}>
-            Usuarios
+            Usuarios App
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -507,7 +508,7 @@ export default function UsersScreen() {
           style={styles.searchInput}
           placeholder={
             activeTab === "employees"
-              ? "Buscar por nombre o documento..."
+              ? "Buscar persona o documento..."
               : activeTab === "system_users"
               ? "Buscar por nombre o correo..."
               : "Buscar rol por nombre o descripción..."
@@ -535,7 +536,7 @@ export default function UsersScreen() {
               onPress={() => router.push("/(admin)/register")}
             >
               <UserPlus size={16} color={C.adminGold} />
-              <Text style={styles.addBtnInlineText}>Registrar Personal</Text>
+              <Text style={styles.addBtnInlineText}>Registrar Persona</Text>
             </TouchableOpacity>
           </View>
 

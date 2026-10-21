@@ -1,7 +1,29 @@
-// types/domain.ts — Interfaces de dominio compartidas (F-10)
+// types/domain.ts — Interfaces de dominio compartidas (Modelo SaaS Multi-Hogar)
+
+export type EstadoServicio = 'ACTIVO' | 'SUSPENDIDO' | 'DENEGADO' | 'PRUEBA';
+
+export interface Hogar {
+  hogar_id: number;
+  codigo_hogar: string;
+  nombre_titular: string;
+  direccion?: string;
+  telefono?: string;
+  email_contacto: string;
+  estado_servicio: EstadoServicio;
+  motivo_suspension?: string;
+  limite_personas: number;
+  limite_camaras: number;
+  notas?: string;
+  total_personas?: number;
+  total_accesos?: number;
+  alertas_activas?: number;
+  created_at: string;
+  updated_at?: string;
+}
 
 export interface AccessLog {
   log_id: number;
+  hogar_id?: number | null;
   access_result: "GRANTED" | "DENIED";
   confidence: number;
   liveness: "REAL" | "SPOOFING" | "UNKNOWN";
@@ -12,6 +34,7 @@ export interface AccessLog {
 
 export interface Employee {
   employee_id: number;
+  hogar_id?: number | null;
   full_name: string;
   document_id: string;
   is_active: boolean;
@@ -19,6 +42,9 @@ export interface Employee {
   created_at: string;
   updated_at: string;
 }
+
+// Alias de dominio residencial
+export type PersonaAutorizada = Employee;
 
 export interface AlertRecord {
   alert_id: number;
@@ -54,6 +80,7 @@ export interface AuditEntry {
 
 export interface Usuario {
   usuario_id: number;
+  hogar_id?: number | null;
   full_name: string;
   email: string;
   is_active: boolean;

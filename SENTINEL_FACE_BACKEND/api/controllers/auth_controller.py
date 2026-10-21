@@ -14,6 +14,7 @@ def login(email: str, password: str):
         "name":        usuario["full_name"],
         "email":       usuario["email"],
         "roles":       usuario.get("roles", []),
+        "hogar_id":    usuario.get("hogar_id"),
     }, None
 
 

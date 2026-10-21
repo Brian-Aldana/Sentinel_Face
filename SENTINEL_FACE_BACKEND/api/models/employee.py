@@ -1,18 +1,21 @@
 from db import get_db
 
 
-def find_all():
+def find_all(hogar_id: int = None):
     conn   = get_db()
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("""
-            SELECT e.employee_id, e.full_name, e.document_id,
+        where = "WHERE e.hogar_id = %s" if hogar_id else ""
+        params = (hogar_id,) if hogar_id else ()
+        cursor.execute(f"""
+            SELECT e.employee_id, e.hogar_id, e.full_name, e.document_id,
                    e.is_active, e.created_at, e.updated_at,
                    u.full_name AS registered_by
             FROM employees e
             LEFT JOIN usuarios u ON e.registered_by = u.usuario_id
+            {where}
             ORDER BY e.created_at DESC
-        """)
+        """, params)
         rows = cursor.fetchall()
         for r in rows:
             for f in ("created_at", "updated_at"):
@@ -29,7 +32,7 @@ def find_by_id(employee_id: int):
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT e.employee_id, e.full_name, e.document_id,
+            SELECT e.employee_id, e.hogar_id, e.full_name, e.document_id,
                    e.is_active, e.created_at, e.updated_at,
                    u.full_name AS registered_by
             FROM employees e
@@ -47,14 +50,20 @@ def find_by_id(employee_id: int):
         conn.close()
 
 
-def create(full_name: str, document_id: str, embedding: bytes, usuario_id, photo_img: bytes = None):
+def create(full_name: str, document_id: str, embedding: bytes, usuario_id, photo_img: bytes = None, hogar_id: int = None):
     conn   = get_db()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     try:
+        if not hogar_id and usuario_id:
+            cursor.execute("SELECT hogar_id FROM usuarios WHERE usuario_id = %s", (usuario_id,))
+            u = cursor.fetchone()
+            if u:
+                hogar_id = u.get("hogar_id")
+
         cursor.execute(
-            "INSERT INTO employees (full_name, document_id, embedding, registered_by, photo_img) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (full_name, document_id, embedding, usuario_id, photo_img),
+            "INSERT INTO employees (full_name, document_id, embedding, registered_by, photo_img, hogar_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (full_name, document_id, embedding, usuario_id, photo_img, hogar_id),
         )
         new_id = cursor.lastrowid
         conn.commit()

@@ -2,11 +2,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useFocusEffect } from "expo-router";
 import {
     AlertTriangle,
+    AlertOctagon,
     CheckCircle,
     Clock,
+    Home,
+    MapPin,
     Shield,
     UserCheck,
     Users,
+    Video,
     LucideIcon,
 } from "lucide-react-native";
 import React, { useState, useCallback, useRef } from "react";
@@ -24,7 +28,7 @@ import { api } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import * as Haptics from "expo-haptics";
 import { useSettingsStore } from "../../store/settingsStore";
-import { AccessLog, AlertRecord, Employee } from "../../types/domain";
+import { AccessLog, AlertRecord, Employee, Hogar } from "../../types/domain";
 import { customAlert } from "../../store/alertStore";
 
 function timeAgo(iso: string) {
@@ -62,10 +66,12 @@ const StatCard = ({ label, value, color, icon: Icon, styles }: StatCardProps) =>
 
 export default function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
+  const authHogar = useAuthStore((s) => s.hogar);
   const router = useRouter();
   const C = useThemeColors();
   const styles = React.useMemo(() => getStyles(C), [C]);
 
+  const [hogar, setHogar] = useState<Hogar | null>(authHogar);
   const [logs, setLogs] = useState<AccessLog[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
@@ -79,31 +85,39 @@ export default function DashboardScreen() {
       setLoading(true);
     }
     try {
-      const [logsRes, empRes, alertsRes] = await Promise.all([
+      const [logsRes, empRes, alertsRes, hogarRes] = await Promise.allSettled([
         api.getLogs({ limit: 10 }),
         api.getEmployees(),
         api.getAlerts(0),
+        api.getMiHogar(),
       ]);
-      setLogs(logsRes.data.logs ?? []);
-      setEmployees(empRes.data.employees ?? []);
-      
-      const newAlerts = alertsRes.data.alerts ?? [];
-      setAlerts(newAlerts);
 
-      // Si las notificaciones están activadas, dispara haptic y alerta nativa al recibir nuevas alertas no resueltas
-      const notificationsEnabled = useSettingsStore.getState().notifications;
-      if (
-        notificationsEnabled &&
-        prevAlertsCount.current !== null &&
-        newAlerts.length > prevAlertsCount.current
-      ) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-        customAlert(
-          "⚠️ Nueva Alerta de Seguridad",
-          "Se ha detectado un nuevo evento sospechoso no resuelto en el sistema."
-        );
+      if (logsRes.status === "fulfilled") setLogs(logsRes.value.data.logs ?? []);
+      if (empRes.status === "fulfilled") setEmployees(empRes.value.data.employees ?? []);
+      
+      if (alertsRes.status === "fulfilled") {
+        const newAlerts = alertsRes.value.data.alerts ?? [];
+        setAlerts(newAlerts);
+
+        const notificationsEnabled = useSettingsStore.getState().notifications;
+        if (
+          notificationsEnabled &&
+          prevAlertsCount.current !== null &&
+          newAlerts.length > prevAlertsCount.current
+        ) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+          customAlert(
+            "⚠️ Nueva Alerta de Seguridad",
+            "Se ha detectado un nuevo evento sospechoso no resuelto en el sistema."
+          );
+        }
+        prevAlertsCount.current = newAlerts.length;
       }
-      prevAlertsCount.current = newAlerts.length;
+
+      if (hogarRes.status === "fulfilled" && hogarRes.value.data) {
+        setHogar(hogarRes.value.data);
+        useAuthStore.setState({ hogar: hogarRes.value.data });
+      }
     } catch (error) {
       if (__DEV__) console.error(error);
       customAlert("Error", "No se pudo cargar la información. Intenta de nuevo.");
@@ -143,6 +157,16 @@ export default function DashboardScreen() {
   const pending = alerts.filter((a) => !a.resolved).length;
   const activeEmployees = employees.filter((e) => e.is_active).length;
 
+  const isSuspended = hogar?.estado_servicio === "SUSPENDIDO";
+  const isDenied = hogar?.estado_servicio === "DENEGADO";
+  const isTrial = hogar?.estado_servicio === "PRUEBA";
+
+  const statusColor = isSuspended || isDenied
+    ? C.redAlert
+    : isTrial
+    ? C.blueNeon
+    : C.greenNeon;
+
   return (
     <ScrollView
       style={styles.container}
@@ -167,30 +191,83 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <LinearGradient
-        colors={["#C3A0F0", "#A080D8"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.adminBadge}
-      >
-        <Shield size={16} color="#FFFFFF" />
-        <Text style={styles.adminBadgeText}>PANEL DE ADMINISTRACIÓN</Text>
-      </LinearGradient>
+      {/* Card Principal del Hogar SaaS */}
+      <View style={styles.hogarCard}>
+        <LinearGradient
+          colors={["rgba(195,160,240,0.18)", "rgba(20,20,35,0.85)"]}
+          style={styles.hogarGradient}
+        >
+          <View style={styles.hogarHeaderRow}>
+            <View style={styles.hogarIconWrap}>
+              <Home size={22} color={C.adminGold} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hogarTitle}>
+                {hogar?.nombre_titular ?? "Hogar Residencial"}
+              </Text>
+              <Text style={styles.hogarCodigo}>
+                {hogar?.codigo_hogar ?? "HOG-001"} · SaaS Residencial
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.serviceBadge,
+                {
+                  borderColor: `${statusColor}50`,
+                  backgroundColor: `${statusColor}18`,
+                },
+              ]}
+            >
+              <Text style={[styles.serviceBadgeText, { color: statusColor }]}>
+                {hogar?.estado_servicio ?? "ACTIVO"}
+              </Text>
+            </View>
+          </View>
 
+          {hogar?.direccion ? (
+            <View style={styles.addressRow}>
+              <MapPin size={13} color={C.textMuted} />
+              <Text style={styles.addressText} numberOfLines={1}>
+                {hogar.direccion}
+              </Text>
+            </View>
+          ) : null}
+        </LinearGradient>
+      </View>
+
+      {/* Banner de Suspensión / Denegación de Servicio */}
+      {(isSuspended || isDenied) && (
+        <View style={styles.suspensionBanner}>
+          <AlertOctagon size={24} color={C.redAlert} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.suspensionTitle}>
+              {isSuspended ? "Servicio Suspendido" : "Servicio Denegado"}
+            </Text>
+            <Text style={styles.suspensionMotivo}>
+              {hogar?.motivo_suspension || "El acceso biométrico en tu hogar ha sido suspendido temporalmente por el proveedor."}
+            </Text>
+            <Text style={styles.suspensionSubtext}>
+              Los accesos en la puerta de entrada serán denegados hasta regularizar el estado.
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Acceso Rápido a Gestión de Personas del Hogar */}
       <TouchableOpacity
         style={styles.quickBtn}
-        onPress={() => router.push("/(admin)/history")}
+        onPress={() => router.push("/(admin)/users")}
       >
-        <Clock size={18} color={C.purpleNeon} />
-        <Text style={styles.quickTxt}>Ver historial completo de accesos</Text>
+        <Users size={18} color={C.purpleNeon} />
+        <Text style={styles.quickTxt}>Gestionar Personas y Familiares del Hogar</Text>
         <Text style={styles.quickArrow}>›</Text>
       </TouchableOpacity>
 
-      <Text style={styles.sectionTitle}>RESUMEN DEL SISTEMA</Text>
+      <Text style={styles.sectionTitle}>MÉTRICAS DEL HOGAR</Text>
       <View style={styles.statsGrid}>
         <StatCard
-          label="Activos"
-          value={activeEmployees}
+          label="Personas registradas"
+          value={`${activeEmployees} / ${hogar?.limite_personas ?? 10}`}
           color={C.blueNeon}
           icon={UserCheck}
           styles={styles}
@@ -203,17 +280,17 @@ export default function DashboardScreen() {
           styles={styles}
         />
         <StatCard
-          label="Alertas"
+          label="Alertas pendientes"
           value={pending}
           color={C.redAlert}
           icon={AlertTriangle}
           styles={styles}
         />
         <StatCard
-          label="Total usuarios"
-          value={employees.length}
+          label="Límite cámaras"
+          value={`${hogar?.limite_camaras ?? 2} activas`}
           color={C.adminGold}
-          icon={Users}
+          icon={Video}
           styles={styles}
         />
       </View>
@@ -296,20 +373,95 @@ const getStyles = (C: any) => StyleSheet.create({
     justifyContent: "center",
   },
 
-  adminBadge: {
+  hogarCard: {
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(195,160,240,0.3)",
+    marginBottom: 16,
+  },
+  hogarGradient: {
+    padding: 16,
+    gap: 12,
+  },
+  hogarHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginBottom: 16,
-    gap: 8,
+    gap: 12,
   },
-  adminBadgeText: {
+  hogarIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(195,160,240,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(195,160,240,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hogarTitle: {
     color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  hogarCodigo: {
+    color: C.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  serviceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  serviceBadgeText: {
+    fontSize: 10,
     fontWeight: "800",
+    letterSpacing: 1,
+  },
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+    paddingTop: 8,
+  },
+  addressText: {
+    color: C.textMuted,
     fontSize: 12,
-    letterSpacing: 2,
+    flex: 1,
+  },
+
+  suspensionBanner: {
+    flexDirection: "row",
+    gap: 12,
+    backgroundColor: "rgba(255, 77, 77, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 77, 77, 0.4)",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 18,
+    alignItems: "flex-start",
+  },
+  suspensionTitle: {
+    color: C.redAlert,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  suspensionMotivo: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "500",
+    marginBottom: 4,
+    lineHeight: 16,
+  },
+  suspensionSubtext: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 11,
+    lineHeight: 14,
   },
 
   quickBtn: {

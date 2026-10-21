@@ -24,9 +24,11 @@ deactivate_model = ns.model("DeactivateEmployee", {
 @ns.route("")
 class EmployeeList(Resource):
     @jwt_required()
+    @ns.doc(params={"hogar_id": "Filtrar por ID de hogar (opcional)"})
     @ns.response(200, "Lista de empleados")
     def get(self):
-        return {"employees": get_all()}
+        hogar_id = request.args.get("hogar_id", type=int)
+        return {"employees": get_all(hogar_id)}
 
     @admin_required
     @ns.response(201, "Empleado registrado")
@@ -37,12 +39,13 @@ class EmployeeList(Resource):
         name       = request.form.get("full_name", "").strip()
         document   = request.form.get("document_id", "").strip()
         usuario_id = request.form.get("usuario_id")
+        hogar_id   = request.form.get("hogar_id", type=int)
         image_file = request.files.get("photo")
 
         if not name or not image_file:
             ns.abort(400, "Nombre e imagen son requeridos")
 
-        result, error = register(name, document, usuario_id, image_file.read())
+        result, error = register(name, document, usuario_id, image_file.read(), hogar_id)
         if error:
             code = 409 if "duplicado" in error.lower() else 400
             ns.abort(code, error)

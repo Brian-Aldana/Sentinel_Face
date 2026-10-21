@@ -16,7 +16,13 @@ export default function AdminLayout() {
   const hasRole = useAuthStore((s) => s.hasRole);
   const C = useThemeColors();
 
-  if (!isAuthenticated || !hasRole("admin")) return <Redirect href="/" />;
+  const isAllowed =
+    hasRole("admin") ||
+    hasRole("superadmin") ||
+    hasRole("hogar_admin") ||
+    hasRole("hogar_user");
+
+  if (!isAuthenticated || !isAllowed) return <Redirect href="/" />;
 
   return (
     <Tabs
@@ -35,7 +41,7 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: "Panel",
+          title: "Mi Hogar",
           tabBarIcon: ({ color }) => <Shield size={24} color={color} />,
         }}
       />
@@ -49,7 +55,7 @@ export default function AdminLayout() {
       <Tabs.Screen
         name="users"
         options={{
-          title: "Usuarios",
+          title: "Personas",
           tabBarIcon: ({ color }) => <Users size={24} color={color} />,
         }}
       />
