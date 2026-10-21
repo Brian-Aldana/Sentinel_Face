@@ -22,7 +22,6 @@ export default function RegisterScreen() {
   const C = useThemeColors();
   const styles = React.useMemo(() => getStyles(C), [C]);
   const user = useAuthStore((s) => s.user);
-  const hogar = useAuthStore((s) => s.hogar);
   const router = useRouter();
   const [name, setName] = useState("");
   const [documentId, setDocumentId] = useState("");
@@ -61,23 +60,24 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     // Validación de estado de servicio SaaS
-    if (hogar?.estado_servicio === "SUSPENDIDO" || hogar?.estado_servicio === "DENEGADO") {
+    const home = user?.home;
+    if (home?.service_status === "SUSPENDED" || home?.service_status === "DENIED") {
       customAlert(
         "Servicio restringido",
-        `No es posible registrar personas mientras el servicio del hogar esté ${hogar.estado_servicio.toLowerCase()}.\n\nMotivo: "${hogar.motivo_suspension || 'Contacta al proveedor'}"`
+        `No es posible registrar personas mientras el servicio del hogar esté ${home.service_status === "SUSPENDED" ? "suspendido" : "denegado"}.\n\nMotivo: "${home.suspension_reason || 'Contacta al proveedor'}"`
       );
       return;
     }
 
     // Validación de cupo máximo del plan SaaS
     if (
-      hogar?.total_personas !== undefined &&
-      hogar?.limite_personas !== undefined &&
-      hogar.total_personas >= hogar.limite_personas
+      home?.total_residents !== undefined &&
+      home?.max_residents !== undefined &&
+      home.total_residents >= home.max_residents
     ) {
       customAlert(
         "Límite de plan alcanzado",
-        `Tu hogar ha alcanzado el límite de ${hogar.limite_personas} personas autorizadas permitidas. Comunícate con Sentinel Face para ampliar tu suscripción.`
+        `Tu hogar ha alcanzado el límite de ${home.max_residents} personas autorizadas permitidas. Comunícate con Sentinel Face para ampliar tu suscripción.`
       );
       return;
     }
@@ -98,22 +98,21 @@ export default function RegisterScreen() {
     const formData = new FormData();
     formData.append("full_name", name.trim());
     formData.append("document_id", documentId.trim() || "Sin documento");
-    formData.append("usuario_id", user?.id ?? "");
-    if (hogar?.hogar_id || user?.hogar_id) {
-      formData.append("hogar_id", String(hogar?.hogar_id ?? user?.hogar_id));
+    if (user?.home_id) {
+      formData.append("home_id", String(user.home_id));
     }
     formData.append("photo", {
       uri: photoUri,
-      name: `persona_${Date.now()}.jpg`,
+      name: `resident_${Date.now()}.jpg`,
       type: "image/jpeg",
     } as any);
 
     try {
-      await api.createEmployee(formData);
+      await api.createResident(formData);
       setSuccess(true);
     } catch (error: any) {
       console.error(error);
-      const msg = error?.response?.data?.message || "No se pudo registrar la persona autorizada. Intenta de nuevo.";
+      const msg = error?.response?.data?.message || "No se pudo registrar el residente. Intenta de nuevo.";
       customAlert("Error", msg);
     } finally {
       setLoading(false);
@@ -128,15 +127,15 @@ export default function RegisterScreen() {
       >
         <View style={styles.successContainer}>
           <CheckCircle size={64} color={C.success} />
-          <Text style={styles.successTitle}>Persona registrada</Text>
+          <Text style={styles.successTitle}>Residente registrado</Text>
           <Text style={styles.successSub}>
-            {name} fue agregado como persona autorizada del hogar {hogar?.nombre_titular ?? ""}.
+            {name} fue agregado exitosamente al sistema de reconocimiento facial de tu hogar.
           </Text>
           <TouchableOpacity
             style={styles.doneBtn}
             onPress={() => router.back()}
           >
-            <Text style={styles.doneTxt}>Volver a Personas</Text>
+            <Text style={styles.doneTxt}>Volver a Residentes</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.newBtn}
@@ -147,7 +146,7 @@ export default function RegisterScreen() {
               setSuccess(false);
             }}
           >
-            <Text style={styles.newTxt}>Registrar otro familiar</Text>
+            <Text style={styles.newTxt}>Registrar otro residente</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -163,7 +162,7 @@ export default function RegisterScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <X size={22} color={C.text} />
         </TouchableOpacity>
-        <Text style={styles.topTitle}>Registrar persona autorizada</Text>
+        <Text style={styles.topTitle}>Registrar residente</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -242,7 +241,7 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.btnTxt}>Registrar usuario</Text>
+              <Text style={styles.btnTxt}>Registrar residente</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>

@@ -4,7 +4,7 @@ import { Alert } from "react-native";
 
 export const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
-  "https://sentinelfacebackend-production.up.railway.app/api";
+  "http://10.157.31.11:5000/api";
 
 export const TOKEN_KEY = "sentinel_access_token";
 
@@ -91,7 +91,7 @@ client.interceptors.response.use(
       }
       Alert.alert(
         "Acceso denegado",
-        "No tienes permiso para realizar esta acción.",
+        error?.response?.data?.message || "No tienes permiso para realizar esta acción.",
         [{ text: "Aceptar" }]
       );
     }
@@ -101,6 +101,7 @@ client.interceptors.response.use(
 );
 
 export const api = {
+  // Autenticación
   login: (email: string, password: string) =>
     client.post("/auth/login", { email, password }),
 
@@ -109,31 +110,50 @@ export const api = {
   changePassword: (currentPassword: string, newPassword: string) =>
     client.post("/auth/change-password", { current_password: currentPassword, new_password: newPassword }),
 
-  // ── Gestión SaaS de Hogares ──
-  getMiHogar: () => client.get("/hogares/mi-hogar"),
-  getHogar: (id: number) => client.get(`/hogares/${id}`),
+  // Hogar / Tenant
+  getMyHome: () => client.get("/homes/my-home"),
+  getHome: (id: number) => client.get(`/homes/${id}`),
 
-  // ── Personas Autorizadas del Hogar (antes Employees) ──
-  getEmployees: (hogarId?: number) => client.get("/employees", { params: hogarId ? { hogar_id: hogarId } : {} }),
-  getPersonas: (hogarId?: number) => client.get("/employees", { params: hogarId ? { hogar_id: hogarId } : {} }),
+  // Compatibility aliases (SaaS / legacy naming)
+  getMiHogar: () => client.get("/homes/my-home"),
+  getPersonas: (homeId?: number) => client.get("/residents", { params: homeId ? { home_id: homeId } : undefined }),
 
-  getEmployee: (id: number) => client.get(`/employees/${id}`),
+  // Residentes (Authorized Residents)
+  getResidents: () => client.get("/residents"),
 
-  createEmployee: (formData: FormData) =>
-    client.post("/employees", formData, {
+  getResident: (id: number) => client.get(`/residents/${id}`),
+
+  createResident: (formData: FormData) =>
+    client.post("/residents", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
 
-  deactivateEmployee: (id: number, usuarioId: number | string) =>
-    client.patch(`/employees/${id}/deactivate`, { usuario_id: usuarioId }),
+  deactivateResident: (id: number, userId?: number | string) =>
+    client.patch(`/residents/${id}/deactivate`, { user_id: userId }),
 
-  activateEmployee: (id: number, usuarioId: number | string) =>
-    client.patch(`/employees/${id}/activate`, { usuario_id: usuarioId }),
+  activateResident: (id: number, userId?: number | string) =>
+    client.patch(`/residents/${id}/activate`, { user_id: userId }),
 
+  deleteResident: (id: number) =>
+    client.delete(`/residents/${id}`),
 
+  // Backwards compatibility aliases for employees
+  getEmployees: () => client.get("/residents"),
+  getEmployee: (id: number) => client.get(`/residents/${id}`),
+  createEmployee: (formData: FormData) =>
+    client.post("/residents", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  deactivateEmployee: (id: number, userId?: number | string) =>
+    client.patch(`/residents/${id}/deactivate`, { user_id: userId }),
+  activateEmployee: (id: number, userId?: number | string) =>
+    client.patch(`/residents/${id}/activate`, { user_id: userId }),
+
+  // Registros de acceso (Access Logs)
   getLogs: (params?: { result?: string; limit?: number; page?: number }) =>
     client.get("/logs", { params }),
 
+  // Alertas de seguridad
   getAlerts: (resolved?: 0 | 1, page = 1) =>
     client.get("/alerts", {
       params: resolved !== undefined ? { resolved, page } : { page },
@@ -141,43 +161,53 @@ export const api = {
 
   getAlert: (id: number) => client.get(`/alerts/${id}`),
 
-  resolveAlert: (id: number, usuarioId: number | string) =>
-    client.patch(`/alerts/${id}/resolve`, { usuario_id: usuarioId }),
+  resolveAlert: (id: number, userId?: number | string) =>
+    client.patch(`/alerts/${id}/resolve`, { user_id: userId }),
 
+  // Auditoría (opcional para admin)
   getAudit: (limit = 20, page = 1) => client.get("/audit", { params: { limit, page } }),
 
+  // Reconocimiento facial test
   recognize: (formData: FormData) =>
     client.post("/recognize", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
 
+  // Gestión de roles (Admin)
   getRoles: (includeInactive = true) =>
     client.get("/roles", { params: { include_inactive: includeInactive } }),
 
-  createRole: (name: string, description: string, usuarioId: number | string) =>
-    client.post("/roles", { name, description, requestor_id: usuarioId }),
+  createRole: (name: string, description: string, requestorId?: number | string) =>
+    client.post("/roles", { name, description, requestor_id: requestorId }),
 
-  deactivateRole: (id: number, usuarioId: number | string) =>
-    client.patch(`/roles/${id}/deactivate`, { requestor_id: usuarioId }),
+  deactivateRole: (id: number, requestorId?: number | string) =>
+    client.patch(`/roles/${id}/deactivate`, { requestor_id: requestorId }),
 
-  activateRole: (id: number, usuarioId: number | string) =>
-    client.patch(`/roles/${id}/activate`, { requestor_id: usuarioId }),
+  activateRole: (id: number, requestorId?: number | string) =>
+    client.patch(`/roles/${id}/activate`, { requestor_id: requestorId }),
 
+  // Gestión de usuarios del sistema (Admin)
   getUsuarios: (includeInactive = true) =>
-    client.get("/usuarios", { params: { include_inactive: includeInactive } }),
+    client.get("/users", { params: { include_inactive: includeInactive } }),
 
-  createUsuario: (fullName: string, email: string, password: string, roles: string[], requestorId: number | string) =>
-    client.post("/usuarios", { full_name: fullName, email, password, roles, requestor_id: Number(requestorId) }),
+  getUsers: (includeInactive = true) =>
+    client.get("/users", { params: { include_inactive: includeInactive } }),
 
-  deactivateUsuario: (id: number, requestorId: number | string) =>
-    client.patch(`/usuarios/${id}/deactivate`, { requestor_id: Number(requestorId) }),
+  createUsuario: (fullName: string, email: string, password: string, roles: string[], requestorId?: number | string) =>
+    client.post("/users", { full_name: fullName, email, password, roles, requestor_id: requestorId ? Number(requestorId) : undefined }),
 
-  activateUsuario: (id: number, requestorId: number | string) =>
-    client.patch(`/usuarios/${id}/activate`, { requestor_id: Number(requestorId) }),
+  createUser: (fullName: string, email: string, password: string, roles: string[], requestorId?: number | string) =>
+    client.post("/users", { full_name: fullName, email, password, roles, requestor_id: requestorId ? Number(requestorId) : undefined }),
 
-  assignUsuarioRole: (usuarioId: number, roleId: number, requestorId: number | string) =>
-    client.post(`/usuarios/${usuarioId}/roles`, { role_id: roleId, requestor_id: Number(requestorId) }),
+  deactivateUsuario: (id: number, requestorId?: number | string) =>
+    client.patch(`/users/${id}/deactivate`, { requestor_id: requestorId ? Number(requestorId) : undefined }),
 
-  removeUsuarioRole: (usuarioId: number, roleId: number, requestorId: number | string) =>
-    client.delete(`/usuarios/${usuarioId}/roles`, { data: { role_id: roleId, requestor_id: Number(requestorId) } }),
+  activateUsuario: (id: number, requestorId?: number | string) =>
+    client.patch(`/users/${id}/activate`, { requestor_id: requestorId ? Number(requestorId) : undefined }),
+
+  assignUsuarioRole: (userId: number, roleId: number, requestorId?: number | string) =>
+    client.post(`/users/${userId}/roles`, { role_id: roleId, requestor_id: requestorId ? Number(requestorId) : undefined }),
+
+  removeUsuarioRole: (userId: number, roleId: number, requestorId?: number | string) =>
+    client.delete(`/users/${userId}/roles`, { data: { role_id: roleId, requestor_id: requestorId ? Number(requestorId) : undefined } }),
 };

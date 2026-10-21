@@ -8,11 +8,24 @@ def admin_required(fn):
     @jwt_required()
     def wrapper(*args, **kwargs):
         identity = get_jwt_identity()
-        # identity ya es un dict — no necesita deserialización manual
         roles = identity.get("roles", []) if isinstance(identity, dict) else []
-        allowed = {"admin", "superadmin", "hogar_admin"}
-        if not any(r in allowed for r in roles):
-            abort(403, "Se requiere rol de administrador para esta operación")
+        allowed = {"admin", "superadmin"}
+        if not allowed.intersection(roles):
+            abort(403, "Se requiere el rol de administrador para esta operación")
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def home_admin_required(fn):
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        identity = get_jwt_identity()
+        roles = identity.get("roles", []) if isinstance(identity, dict) else []
+        allowed = {"home_admin", "hogar_admin", "admin", "superadmin"}
+        if not allowed.intersection(roles):
+            abort(403, "Se requiere el rol de titular de hogar o administrador para esta operación")
         return fn(*args, **kwargs)
 
     return wrapper

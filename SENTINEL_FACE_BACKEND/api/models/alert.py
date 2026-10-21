@@ -1,30 +1,36 @@
 from db import get_db
 
 
-def find_all(resolved=0, limit=20, page=1):
-    conn   = get_db()
+def find_all(resolved=0, home_id: int = None, limit=20, page=1):
+    conn = get_db()
     cursor = conn.cursor(dictionary=True)
     try:
-        limit  = min(int(limit), 100)
-        page   = max(int(page), 1)
+        limit = min(int(limit), 100)
+        page = max(int(page), 1)
         offset = (page - 1) * limit
 
-        cursor.execute(
-            "SELECT COUNT(*) AS total FROM security_alerts WHERE resolved = %s",
-            (resolved,)
-        )
+        conditions = ["sa.resolved = %s"]
+        params = [resolved]
+        if home_id:
+            conditions.append("sa.home_id = %s")
+            params.append(home_id)
+
+        where = "WHERE " + " AND ".join(conditions)
+
+        cursor.execute(f"SELECT COUNT(*) AS total FROM security_alerts sa {where}", params)
         total = cursor.fetchone()["total"]
 
-        cursor.execute("""
-            SELECT sa.alert_id, sa.alert_type, sa.severity,
-                   sa.description, sa.resolved, sa.created_at,
-                   sa.resolved_at, al.event_time
+        cursor.execute(f"""
+            SELECT sa.alert_id, sa.home_id, sa.log_id, sa.alert_type, sa.severity,
+                   sa.description, sa.resolved, sa.created_at, sa.resolved_at,
+                   al.event_time, h.home_code, h.owner_name
             FROM security_alerts sa
             LEFT JOIN access_logs al ON sa.log_id = al.log_id
-            WHERE sa.resolved = %s
+            LEFT JOIN homes h ON sa.home_id = h.home_id
+            {where}
             ORDER BY sa.created_at DESC
             LIMIT %s OFFSET %s
-        """, (resolved, limit, offset))
+        """, params + [limit, offset])
         rows = cursor.fetchall()
         for r in rows:
             for f in ("created_at", "event_time", "resolved_at"):
@@ -43,18 +49,18 @@ def find_all(resolved=0, limit=20, page=1):
 
 
 def find_by_id(alert_id: int):
-    conn   = get_db()
+    conn = get_db()
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT sa.alert_id, sa.alert_type, sa.severity,
-                   sa.description, sa.resolved, sa.created_at,
-                   sa.resolved_at, sa.log_id,
-                   al.event_time,
+            SELECT sa.alert_id, sa.home_id, sa.log_id, sa.alert_type, sa.severity,
+                   sa.description, sa.resolved, sa.created_at, sa.resolved_at,
+                   al.event_time, h.home_code, h.owner_name,
                    u.full_name AS resolved_by
             FROM security_alerts sa
             LEFT JOIN access_logs al ON sa.log_id = al.log_id
-            LEFT JOIN usuarios u ON sa.resolved_by = u.usuario_id
+            LEFT JOIN homes h ON sa.home_id = h.home_id
+            LEFT JOIN users u ON sa.resolved_by = u.user_id
             WHERE sa.alert_id = %s
         """, (alert_id,))
         row = cursor.fetchone()
@@ -68,14 +74,14 @@ def find_by_id(alert_id: int):
         conn.close()
 
 
-def create(log_id, alert_type: str, severity: str, description: str = None):
-    conn   = get_db()
+def create(alert_type: str, severity: str, description: str, log_id: int = None, home_id: int = None):
+    conn = get_db()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO security_alerts (log_id, alert_type, severity, description) "
-            "VALUES (%s, %s, %s, %s)",
-            (log_id, alert_type, severity, description),
+            "INSERT INTO security_alerts (alert_type, severity, description, log_id, home_id) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (alert_type, severity, description, log_id, home_id),
         )
         alert_id = cursor.lastrowid
         conn.commit()
@@ -85,24 +91,30 @@ def create(log_id, alert_type: str, severity: str, description: str = None):
         conn.close()
 
 
-def resolve(alert_id: int, usuario_id):
-    conn   = get_db()
+def resolve(alert_id: int, user_id: int = None):
+    conn = get_db()
     cursor = conn.cursor()
     try:
+        cursor.execute("SELECT alert_id, resolved FROM security_alerts WHERE alert_id = %s", (alert_id,))
+        row = cursor.fetchone()
+        if not row:
+            return False, "Alerta no encontrada"
+        if row[1]:
+            return False, "La alerta ya está resuelta"
+
         cursor.execute(
-            "UPDATE security_alerts SET resolved=1, resolved_by=%s, resolved_at=NOW() "
-            "WHERE alert_id=%s",
-            (usuario_id, alert_id),
+            "UPDATE security_alerts SET resolved = 1, resolved_by = %s, resolved_at = NOW() WHERE alert_id = %s",
+            (user_id, alert_id),
         )
         conn.commit()
-        return cursor.rowcount > 0
+        return True, None
     finally:
         cursor.close()
         conn.close()
 
 
 def delete(alert_id: int):
-    conn   = get_db()
+    conn = get_db()
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT alert_id FROM security_alerts WHERE alert_id = %s", (alert_id,))

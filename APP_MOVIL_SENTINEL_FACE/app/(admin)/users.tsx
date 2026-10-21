@@ -1,1114 +1,360 @@
 import { useRouter, useFocusEffect } from "expo-router";
-import { Search, UserMinus, UserPlus, Shield, UserCheck, X, Check, Plus, ShieldCheck, ShieldOff } from "lucide-react-native";
+import {
+  AlertTriangle,
+  CheckCircle,
+  Plus,
+  Search,
+  Trash2,
+  UserCheck,
+  UserMinus,
+  Users,
+  XCircle,
+} from "lucide-react-native";
 import React, { useState, useCallback } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Modal,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-    Switch,
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { Image } from "expo-image";
 import { useThemeColors } from "../../constants/theme";
-import { api, BASE_URL } from "../../services/api";
+import { api } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
-import { Employee, Usuario, Role } from "../../types/domain";
-import { LinearGradient } from "expo-linear-gradient";
+import { Resident, Home } from "../../types/domain";
 import { customAlert } from "../../store/alertStore";
 
 export default function UsersScreen() {
   const user = useAuthStore((s) => s.user);
-  const token = useAuthStore((s) => s.token);
   const router = useRouter();
   const C = useThemeColors();
   const styles = React.useMemo(() => getStyles(C), [C]);
 
-  // Tab: 'employees' (Personal biométrico), 'system_users' (Usuarios del sistema) o 'roles' (Roles del sistema)
-  const [activeTab, setActiveTab] = useState<"employees" | "system_users" | "roles">("employees");
-
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [systemUsers, setSystemUsers] = useState<Usuario[]>([]);
-  const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-
+  const [residents, setResidents] = useState<Resident[]>([]);
+  const [home, setHome] = useState<Home | null>(user?.home ?? null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const [showInactive, setShowInactive] = useState(true);
+  const [showOnlyActive, setShowOnlyActive] = useState(false);
 
-  // Modal Crear Usuario Sistema
-  const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [createName, setCreateName] = useState("");
-  const [createEmail, setCreateEmail] = useState("");
-  const [createPassword, setCreatePassword] = useState("");
-  const [createRoles, setCreateRoles] = useState<string[]>([]);
-  const [createLoading, setCreateLoading] = useState(false);
+  // Modal para confirmar toggle de estado
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
 
-  // Modal Crear Nuevo Rol
-  const [createRoleModalVisible, setCreateRoleModalVisible] = useState(false);
-  const [roleName, setRoleName] = useState("");
-  const [roleDesc, setRoleDesc] = useState("");
-  const [createRoleLoading, setCreateRoleLoading] = useState(false);
-
-  // Modal Gestionar Roles
-  const [rolesModalVisible, setRolesModalVisible] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<Usuario | null>(null);
-  const [updatingRoleId, setUpdatingRoleId] = useState<number | null>(null);
-
-  const fetchData = useCallback(async (showFullLoading = false) => {
-    if (showFullLoading) {
-      setLoading(true);
-    }
+  const fetchResidents = useCallback(async (showFullLoading = false) => {
+    if (showFullLoading) setLoading(true);
     try {
-      if (activeTab === "employees") {
-        const hogarId = useAuthStore.getState().hogar?.hogar_id;
-        const res = await api.getEmployees(hogarId ?? undefined);
-        setEmployees(res.data.employees ?? []);
-      } else if (activeTab === "system_users") {
-        const [resUsers, resRoles] = await Promise.all([
-          api.getUsuarios(true), // include_inactive = true
-          api.getRoles(false)     // Solo roles activos
-        ]);
-        setSystemUsers(resUsers.data.usuarios ?? []);
-        setAvailableRoles(resRoles.data.roles ?? []);
-      } else if (activeTab === "roles") {
-        const res = await api.getRoles(true); // Todos los roles (activos e inactivos)
-        setRoles(res.data.roles ?? []);
-      }
+      const [resRes, homeRes] = await Promise.all([
+        api.getResidents(),
+        api.getMyHome().catch(() => null),
+      ]);
+      setResidents(resRes.data.residents ?? []);
+      if (homeRes?.data) setHome(homeRes.data);
     } catch (error) {
       if (__DEV__) console.error(error);
-      customAlert("Error", "No se pudo cargar la información. Intenta de nuevo.");
+      customAlert("Error", "No se pudo cargar la lista de residentes.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab]);
+  }, []);
 
-  // Recarga automática de datos al enfocar la pantalla o cambiar de pestaña
   useFocusEffect(
     useCallback(() => {
-      const isEmpty =
-        activeTab === "employees"
-          ? employees.length === 0
-          : activeTab === "system_users"
-          ? systemUsers.length === 0
-          : roles.length === 0;
-      fetchData(isEmpty);
-    }, [fetchData, activeTab, employees.length, systemUsers.length, roles.length])
+      fetchResidents(residents.length === 0);
+    }, [fetchResidents, residents.length])
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchData(false);
-  }, [fetchData]);
+    fetchResidents(false);
+  }, [fetchResidents]);
 
-  // Filtrado de listas locales
-  const filteredEmployees = employees.filter((e) => {
-    const matchSearch =
-      e.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      (e.document_id && e.document_id.includes(search));
-    const matchStatus = showInactive ? true : e.is_active;
-    return matchSearch && matchStatus;
-  });
-
-  const filteredSystemUsers = systemUsers.filter((u) => {
-    const matchSearch =
-      u.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = showInactive ? true : u.is_active;
-    return matchSearch && matchStatus;
-  });
-
-  const filteredRoles = roles.filter((r) => {
-    const matchSearch =
-      r.name.toLowerCase().includes(search.toLowerCase()) ||
-      (r.description && r.description.toLowerCase().includes(search.toLowerCase()));
-    const matchStatus = showInactive ? true : r.is_active;
-    return matchSearch && matchStatus;
-  });
-
-  const handleDeactivateRole = (id: number, name: string) => {
-    customAlert(
-      "Desactivar rol",
-      `¿Desactivar el rol "${name}"? Los usuarios que lo tengan asignado no lo perderán pero no se podrá asignar a nuevos usuarios.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Desactivar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await api.deactivateRole(id, user?.id ?? "");
-              setRoles((prev) =>
-                prev.map((r) =>
-                  r.role_id === id ? { ...r, is_active: false } : r,
-                ),
-              );
-            } catch (error) {
-              if (__DEV__) console.error(error);
-              customAlert(
-                "Error",
-                (error as any)?.response?.data?.message ?? "No se pudo desactivar el rol."
-              );
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleActivateRole = (id: number, name: string) => {
-    customAlert("Activar rol", `¿Reactivar el rol "${name}"?`, [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Activar",
-        onPress: async () => {
-          try {
-            await api.activateRole(id, user?.id ?? "");
-            setRoles((prev) =>
-              prev.map((r) =>
-                r.role_id === id ? { ...r, is_active: true } : r,
-              ),
-            );
-          } catch (error) {
-            if (__DEV__) console.error(error);
-            customAlert(
-              "Error",
-              (error as any)?.response?.data?.message ?? "No se pudo activar el rol."
-            );
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleCreateRoleSubmit = async () => {
-    if (!roleName.trim()) {
-      customAlert("Campo requerido", "El nombre del rol es obligatorio.");
-      return;
-    }
-    setCreateRoleLoading(true);
+  const handleToggleStatus = async () => {
+    if (!selectedResident) return;
+    setStatusLoading(true);
     try {
-      const res = await api.createRole(roleName.trim(), roleDesc.trim(), user?.id ?? "");
-      setRoles((prev) => [...prev, res.data]);
-      setRoleName("");
-      setRoleDesc("");
-      setCreateRoleModalVisible(false);
-      fetchData(false);
-    } catch (error) {
-      if (__DEV__) console.error(error);
-      customAlert(
-        "Error",
-        (error as any)?.response?.data?.message ?? "No se pudo crear el rol."
-      );
-    } finally {
-      setCreateRoleLoading(false);
-    }
-  };
-
-  // Acciones: Desactivar Empleado (Biométrico)
-  const handleDeactivateEmployee = (id: number, name: string) => {
-    customAlert(
-      "Desactivar empleado",
-      `¿Desactivar a ${name}? El registro se conserva por auditoría pero el empleado perderá acceso al sistema.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Desactivar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await api.deactivateEmployee(id, user?.id ?? "");
-              setEmployees((prev) =>
-                prev.map((e) =>
-                  e.employee_id === id ? { ...e, is_active: false } : e,
-                ),
-              );
-            } catch (error) {
-              if (__DEV__) console.error(error);
-              customAlert(
-                "Error",
-                (error as any)?.response?.data?.message ?? "No se pudo desactivar el empleado."
-              );
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  // Acciones: Activar Empleado (Biométrico)
-  const handleActivateEmployee = (id: number, name: string) => {
-    customAlert(
-      "Activar empleado",
-      `¿Reactivar a ${name}? Volverá a estar habilitado para registrar accesos biométricos.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Activar",
-          onPress: async () => {
-            try {
-              await api.activateEmployee(id, user?.id ?? "");
-              setEmployees((prev) =>
-                prev.map((e) =>
-                  e.employee_id === id ? { ...e, is_active: true } : e,
-                ),
-              );
-            } catch (error) {
-              if (__DEV__) console.error(error);
-              customAlert(
-                "Error",
-                (error as any)?.response?.data?.message ?? "No se pudo activar el empleado."
-              );
-            }
-          },
-        },
-      ],
-    );
-  };
-
-
-  // Acciones: Desactivar Usuario del Sistema
-  const handleDeactivateUser = (id: number, name: string) => {
-    customAlert(
-      "Desactivar usuario",
-      `¿Desactivar al usuario ${name}? Perderá inmediatamente el acceso de inicio de sesión.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Desactivar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await api.deactivateUsuario(id, user?.id ?? "");
-              setSystemUsers((prev) =>
-                prev.map((u) =>
-                  u.usuario_id === id ? { ...u, is_active: false } : u,
-                ),
-              );
-            } catch (error) {
-              if (__DEV__) console.error(error);
-              customAlert(
-                "Error",
-                (error as any)?.response?.data?.message ?? "No se pudo desactivar el usuario."
-              );
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  // Acciones: Activar Usuario del Sistema
-  const handleActivateUser = (id: number, name: string) => {
-    customAlert(
-      "Activar usuario",
-      `¿Reactivar al usuario ${name}? Podrá iniciar sesión en la aplicación nuevamente.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Activar",
-          onPress: async () => {
-            try {
-              await api.activateUsuario(id, user?.id ?? "");
-              setSystemUsers((prev) =>
-                prev.map((u) =>
-                  u.usuario_id === id ? { ...u, is_active: true } : u,
-                ),
-              );
-            } catch (error) {
-              if (__DEV__) console.error(error);
-              customAlert(
-                "Error",
-                (error as any)?.response?.data?.message ?? "No se pudo activar el usuario."
-              );
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  // Crear Usuario del Sistema
-  const handleCreateUserSubmit = async () => {
-    if (!createName.trim()) {
-      customAlert("Campo requerido", "Por favor ingresa el nombre completo.");
-      return;
-    }
-    if (!createEmail.trim()) {
-      customAlert("Campo requerido", "Por favor ingresa el correo electrónico.");
-      return;
-    }
-    if (!createPassword.trim()) {
-      customAlert("Campo requerido", "Por favor ingresa la contraseña.");
-      return;
-    }
-    setCreateLoading(true);
-    try {
-      await api.createUsuario(
-        createName.trim(),
-        createEmail.trim(),
-        createPassword,
-        createRoles,
-        user?.id ?? "1"
-      );
-      customAlert("Éxito", "Usuario del sistema registrado correctamente.");
-      setCreateModalVisible(false);
-      setCreateName("");
-      setCreateEmail("");
-      setCreatePassword("");
-      setCreateRoles([]);
-      fetchData(false);
-    } catch (error) {
-      if (__DEV__) console.error(error);
-      customAlert(
-        "Error",
-        (error as any)?.response?.data?.message ?? "No se pudo crear el usuario del sistema."
-      );
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
-  // Roles checkbox helper para creación
-  const toggleInitialRole = (roleName: string) => {
-    setCreateRoles((prev) =>
-      prev.includes(roleName)
-        ? prev.filter((r) => r !== roleName)
-        : [...prev, roleName]
-    );
-  };
-
-  // Abrir Modal de Roles para un usuario existente
-  const openRolesModal = (u: Usuario) => {
-    setSelectedUser(u);
-    setRolesModalVisible(true);
-  };
-
-  // Asignar / Remover Rol de un usuario existente
-  const toggleUserRole = async (role: Role) => {
-    if (!selectedUser) return;
-    const hasRole = selectedUser.roles.includes(role.name);
-    
-    // Evitar que el administrador se quite su propio rol admin
-    if (hasRole && role.name === "admin" && String(selectedUser.usuario_id) === String(user?.id)) {
-      customAlert("Acción inválida", "No puedes remover tu propio rol de administrador.");
-      return;
-    }
-
-    setUpdatingRoleId(role.role_id);
-    try {
-      if (hasRole) {
-        // Remover rol
-        await api.removeUsuarioRole(selectedUser.usuario_id, role.role_id, user?.id ?? "");
-        const updated = selectedUser.roles.filter((r) => r !== role.name);
-        setSelectedUser({ ...selectedUser, roles: updated });
-        setSystemUsers((prev) =>
-          prev.map((u) =>
-            u.usuario_id === selectedUser.usuario_id ? { ...u, roles: updated } : u
-          )
-        );
+      if (selectedResident.is_active) {
+        await api.deactivateResident(selectedResident.resident_id, user?.id);
       } else {
-        // Asignar rol
-        await api.assignUsuarioRole(selectedUser.usuario_id, role.role_id, user?.id ?? "");
-        const updated = [...selectedUser.roles, role.name];
-        setSelectedUser({ ...selectedUser, roles: updated });
-        setSystemUsers((prev) =>
-          prev.map((u) =>
-            u.usuario_id === selectedUser.usuario_id ? { ...u, roles: updated } : u
-          )
-        );
+        await api.activateResident(selectedResident.resident_id, user?.id);
       }
-    } catch (error) {
-      if (__DEV__) console.error(error);
+      setStatusModalVisible(false);
+      await fetchResidents(false);
       customAlert(
-        "Error",
-        (error as any)?.response?.data?.message ?? "No se pudo actualizar el rol del usuario."
+        "Estado Actualizado",
+        `El residente ${selectedResident.full_name} ha sido ${selectedResident.is_active ? "desactivado" : "activado"} exitosamente.`
       );
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || "No se pudo actualizar el estado del residente.";
+      customAlert("Error", msg);
     } finally {
-      setUpdatingRoleId(null);
+      setStatusLoading(false);
     }
   };
+
+  const isSuspended = home?.service_status === "SUSPENDED" || home?.service_status === "DENIED";
+  const activeResidentsCount = residents.filter((r) => r.is_active).length;
+  const maxResidents = home?.max_residents ?? 10;
+  const isLimitReached = activeResidentsCount >= maxResidents;
+
+  const filteredResidents = residents.filter((r) => {
+    const q = search.toLowerCase();
+    const matchesSearch =
+      r.full_name.toLowerCase().includes(q) ||
+      (r.document_id && r.document_id.toLowerCase().includes(q));
+    const matchesActive = !showOnlyActive || r.is_active;
+    return matchesSearch && matchesActive;
+  });
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: C.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <ActivityIndicator size="large" color={C.adminGold} />
       </View>
     );
   }
 
-  const activeCount =
-    activeTab === "employees"
-      ? employees.filter((e) => e.is_active).length
-      : activeTab === "system_users"
-      ? systemUsers.filter((u) => u.is_active).length
-      : roles.filter((r) => r.is_active).length;
-
-  const titleText =
-    activeTab === "employees"
-      ? "Personal"
-      : activeTab === "system_users"
-      ? "Usuarios"
-      : "Roles";
-
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>
-          {titleText} ({activeCount} activos)
-        </Text>
-      </View>
-
-      {/* Selector de Pestañas */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === "employees" && styles.tabButtonActive]}
-          onPress={() => {
-            setSearch("");
-            setActiveTab("employees");
-          }}
-        >
-          <Text style={[styles.tabButtonText, activeTab === "employees" && styles.tabButtonTextActive]}>
-            Personas del Hogar
+        <View style={{ flex: 1 }}>
+          <Text style={styles.screenTitle}>Residentes Autorizados</Text>
+          <Text style={styles.screenSubtitle}>
+            {home?.owner_name || "Mi Hogar"} · {activeResidentsCount}/{maxResidents} cupos utilizados
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === "system_users" && styles.tabButtonActive]}
-          onPress={() => {
-            setSearch("");
-            setActiveTab("system_users");
-          }}
-        >
-          <Text style={[styles.tabButtonText, activeTab === "system_users" && styles.tabButtonTextActive]}>
-            Usuarios App
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === "roles" && styles.tabButtonActive]}
-          onPress={() => {
-            setSearch("");
-            setActiveTab("roles");
-          }}
-        >
-          <Text style={[styles.tabButtonText, activeTab === "roles" && styles.tabButtonTextActive]}>
-            Roles
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.searchBar}>
-        <Search size={16} color={C.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={
-            activeTab === "employees"
-              ? "Buscar persona o documento..."
-              : activeTab === "system_users"
-              ? "Buscar por nombre o correo..."
-              : "Buscar rol por nombre o descripción..."
-          }
-          placeholderTextColor={C.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
-
-      {activeTab === "employees" && (
-        <>
-          <View style={styles.submenuActions}>
-            <TouchableOpacity
-              style={[styles.filterBtn, !showInactive && styles.filterBtnActive]}
-              onPress={() => setShowInactive((p) => !p)}
-            >
-              <Text style={[styles.filterTxt, !showInactive && styles.filterTxtActive]}>
-                {showInactive ? "Ver activos" : "Ver todos"}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.addBtnInline}
-              onPress={() => router.push("/(admin)/register")}
-            >
-              <UserPlus size={16} color={C.adminGold} />
-              <Text style={styles.addBtnInlineText}>Registrar Persona</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* LISTADO DE EMPLEADOS (CON FOTO) */}
-          <FlatList
-            data={filteredEmployees}
-            keyExtractor={(item) => String(item.employee_id)}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={C.adminGold}
-                colors={[C.adminGold]}
-              />
-            }
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text style={styles.emptyTxt}>
-                  {search ? "Sin resultados para tu búsqueda" : "No hay empleados registrados"}
-                </Text>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <View style={[styles.userRow, !item.is_active && styles.userRowInactive]}>
-                <View style={[styles.avatar, !item.is_active && styles.avatarInactive, { overflow: "hidden" }]}>
-                  <Text style={[styles.avatarText, !item.is_active && styles.avatarTextInactive]}>
-                    {item.full_name[0].toUpperCase()}
-                  </Text>
-                  <Image
-                    source={{
-                      uri: `${BASE_URL}/employees/${item.employee_id}/image`,
-                      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                    }}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    onError={() => {
-                      // No hacer nada si falla, queda la inicial como fallback
-                    }}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.userName, !item.is_active && styles.textInactive]}>
-                    {item.full_name}
-                  </Text>
-                  <Text style={styles.userDoc}>Doc: {item.document_id}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor: item.is_active
-                        ? "rgba(0,229,160,0.15)"
-                        : "rgba(255,61,113,0.12)",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      {
-                        color: item.is_active ? C.success : C.error,
-                      },
-                    ]}
-                  >
-                    {item.is_active ? "Activo" : "Inactivo"}
-                  </Text>
-                </View>
-                {item.is_active ? (
-                  <TouchableOpacity
-                    onPress={() => handleDeactivateEmployee(item.employee_id, item.full_name)}
-                    style={styles.actionBtn}
-                  >
-                    <UserMinus size={16} color={C.redAlert} />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => handleActivateEmployee(item.employee_id, item.full_name)}
-                    style={styles.actionBtn}
-                  >
-                    <UserCheck size={16} color={C.success} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          />
-        </>
-      )}
-
-      {activeTab === "system_users" && (
-        <>
-          <View style={styles.submenuActions}>
-            <TouchableOpacity
-              style={[styles.filterBtn, !showInactive && styles.filterBtnActive]}
-              onPress={() => setShowInactive((p) => !p)}
-            >
-              <Text style={[styles.filterTxt, !showInactive && styles.filterTxtActive]}>
-                {showInactive ? "Ver activos" : "Ver todos"}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.addBtnInline}
-              onPress={() => setCreateModalVisible(true)}
-            >
-              <UserPlus size={16} color={C.adminGold} />
-              <Text style={styles.addBtnInlineText}>Adicionar Usuario</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* LISTADO DE USUARIOS DEL SISTEMA */}
-          <FlatList
-            data={filteredSystemUsers}
-            keyExtractor={(item) => String(item.usuario_id)}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={C.adminGold}
-                colors={[C.adminGold]}
-              />
-            }
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text style={styles.emptyTxt}>
-                  {search ? "Sin resultados para tu búsqueda" : "No hay usuarios de sistema registrados"}
-                </Text>
-              </View>
-            }
-            renderItem={({ item }) => {
-              const isMe = String(item.usuario_id) === String(user?.id);
-              return (
-                <View style={[styles.userRow, !item.is_active && styles.userRowInactive]}>
-                  <TouchableOpacity
-                    style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12 }}
-                    onPress={() => openRolesModal(item)}
-                  >
-                    <View style={[styles.avatar, !item.is_active && styles.avatarInactive]}>
-                      <Text style={[styles.avatarText, !item.is_active && styles.avatarTextInactive]}>
-                        {item.full_name[0].toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.userName, !item.is_active && styles.textInactive]}>
-                        {item.full_name} {isMe && <Text style={styles.myUserTag}>(Tú)</Text>}
-                      </Text>
-                      <Text style={styles.userDoc}>{item.email}</Text>
-                      
-                      {/* Tags de roles */}
-                      <View style={styles.rolesContainer}>
-                        {item.roles && item.roles.length > 0 ? (
-                          item.roles.map((r, idx) => (
-                            <View key={idx} style={styles.roleBadge}>
-                              <Text style={styles.roleBadgeTxt}>{r}</Text>
-                            </View>
-                          ))
-                        ) : (
-                          <Text style={styles.noRolesTxt}>Sin roles</Text>
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-
-                  <View style={styles.actionsContainer}>
-                    <TouchableOpacity
-                      onPress={() => openRolesModal(item)}
-                      style={styles.actionBtn}
-                    >
-                      <Shield size={16} color={C.adminGold} />
-                    </TouchableOpacity>
-
-                    {item.is_active ? (
-                      <TouchableOpacity
-                        onPress={() => handleDeactivateUser(item.usuario_id, item.full_name)}
-                        disabled={isMe}
-                        style={[styles.actionBtn, isMe && { opacity: 0.25 }]}
-                      >
-                        <UserMinus size={16} color={C.redAlert} />
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => handleActivateUser(item.usuario_id, item.full_name)}
-                        style={styles.actionBtn}
-                      >
-                        <UserCheck size={16} color={C.success} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              );
-            }}
-          />
-        </>
-      )}
-
-      {activeTab === "roles" && (
-        <>
-          <View style={styles.submenuActions}>
-            <TouchableOpacity
-              style={[styles.filterBtn, !showInactive && styles.filterBtnActive]}
-              onPress={() => setShowInactive((p) => !p)}
-            >
-              <Text style={[styles.filterTxt, !showInactive && styles.filterTxtActive]}>
-                {showInactive ? "Ver activos" : "Ver todos"}
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.addBtnInline}
-              onPress={() => setCreateRoleModalVisible(true)}
-            >
-              <Plus size={16} color={C.adminGold} />
-              <Text style={styles.addBtnInlineText}>Nuevo Rol</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* LISTADO DE ROLES DEL SISTEMA */}
-          <FlatList
-            data={filteredRoles}
-            keyExtractor={(item) => String(item.role_id)}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={C.adminGold}
-                colors={[C.adminGold]}
-              />
-            }
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text style={styles.emptyTxt}>
-                  {search ? "Sin resultados para tu búsqueda" : "No hay roles registrados"}
-                </Text>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <View style={[styles.roleRow, !item.is_active && styles.roleRowInactive]}>
-                <View
-                  style={[
-                    styles.roleIcon,
-                    {
-                      backgroundColor: item.is_active
-                        ? `${C.adminGold}15`
-                        : `${C.textMuted}15`,
-                    },
-                  ]}
-                >
-                  {item.is_active ? (
-                    <ShieldCheck size={20} color={C.adminGold} />
-                  ) : (
-                    <ShieldOff size={20} color={C.textMuted} />
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.roleName, !item.is_active && styles.textInactive]}>
-                    {item.name}
-                  </Text>
-                  {item.description ? (
-                    <Text style={styles.roleDesc} numberOfLines={1}>
-                      {item.description}
-                    </Text>
-                  ) : null}
-                </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor: item.is_active
-                        ? "rgba(0,229,160,0.15)"
-                        : "rgba(255,61,113,0.12)",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      {
-                        color: item.is_active ? C.success : C.error,
-                      },
-                    ]}
-                  >
-                    {item.is_active ? "Activo" : "Inactivo"}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() =>
-                    item.is_active
-                      ? handleDeactivateRole(item.role_id, item.name)
-                      : handleActivateRole(item.role_id, item.name)
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.roleActionTxt,
-                      {
-                        color: item.is_active ? C.redAlert : C.success,
-                      },
-                    ]}
-                  >
-                    {item.is_active ? "Desactivar" : "Activar"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-        </>
-      )}
-
-      {/* MODAL: NUEVO USUARIO DE SISTEMA */}
-      <Modal
-        visible={createModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setCreateModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nuevo Usuario de Sistema</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setCreateModalVisible(false);
-                  setCreateName("");
-                  setCreateEmail("");
-                  setCreatePassword("");
-                  setCreateRoles([]);
-                }}
-              >
-                <X size={20} color={C.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalLabel}>NOMBRE COMPLETO *</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="ej: Andrés Felipe Pérez"
-              placeholderTextColor={C.textMuted}
-              value={createName}
-              onChangeText={setCreateName}
-            />
-
-            <Text style={styles.modalLabel}>CORREO ELECTRÓNICO *</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="ej: andres@sentinel.com"
-              placeholderTextColor={C.textMuted}
-              value={createEmail}
-              onChangeText={setCreateEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-
-            <Text style={styles.modalLabel}>CONTRASEÑA *</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Escribe la clave de acceso..."
-              placeholderTextColor={C.textMuted}
-              secureTextEntry
-              value={createPassword}
-              onChangeText={setCreatePassword}
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.modalLabel}>SELECCIONAR ROLES INICIALES</Text>
-            <View style={styles.rolesChecklist}>
-              {availableRoles.map((role) => {
-                const isSelected = createRoles.includes(role.name);
-                return (
-                  <TouchableOpacity
-                    key={role.role_id}
-                    style={[styles.roleCheckRow, isSelected && styles.roleCheckRowSelected]}
-                    onPress={() => toggleInitialRole(role.name)}
-                  >
-                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                      {isSelected && <Check size={12} color="#050514" />}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.roleCheckName}>{role.name}</Text>
-                      {role.description ? (
-                        <Text style={styles.roleCheckDesc}>{role.description}</Text>
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-              {availableRoles.length === 0 && (
-                <Text style={styles.noRolesTxt}>No hay roles activos disponibles en el sistema.</Text>
-              )}
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                disabled={createLoading}
-                onPress={() => {
-                  setCreateModalVisible(false);
-                  setCreateName("");
-                  setCreateEmail("");
-                  setCreatePassword("");
-                  setCreateRoles([]);
-                }}
-              >
-                <Text style={styles.cancelTxt}>Cancelar</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.createBtn, createLoading && { opacity: 0.6 }]}
-                disabled={createLoading}
-                onPress={handleCreateUserSubmit}
-              >
-                <LinearGradient
-                  colors={C.gradients.admin as any}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.createGrad}
-                >
-                  {createLoading ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <Text style={styles.createTxt}>Registrar</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
-      </Modal>
+        <TouchableOpacity
+          style={[styles.addBtn, (isSuspended || isLimitReached) && styles.addBtnDisabled]}
+          onPress={() => {
+            if (isSuspended) {
+              customAlert(
+                "Servicio No Disponible",
+                "El servicio del hogar está suspendido. No se pueden registrar residentes."
+              );
+              return;
+            }
+            if (isLimitReached) {
+              customAlert(
+                "Cupo Máximo Alcanzado",
+                `Tu hogar ha alcanzado el límite de ${maxResidents} residentes autorizados. Para aumentar el cupo, contacta al proveedor.`
+              );
+              return;
+            }
+            router.push("/(admin)/register");
+          }}
+        >
+          <Plus size={18} color="#FFFFFF" />
+          <Text style={styles.addBtnText}>Nuevo</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* MODAL: ASIGNACIÓN DE ROLES */}
+      {/* Warning banner if suspended */}
+      {isSuspended && (
+        <View style={styles.suspendedBanner}>
+          <AlertTriangle size={18} color="#F59E0B" />
+          <Text style={styles.suspendedBannerText}>
+            Servicio {home?.service_status}: Las modificaciones biométricas y el acceso facial están deshabilitados.
+          </Text>
+        </View>
+      )}
+
+      {/* Search and Filters */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBox}>
+          <Search size={16} color={C.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por nombre o documento..."
+            placeholderTextColor={C.textMuted}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <TouchableOpacity
+          style={[styles.filterToggle, showOnlyActive && styles.filterToggleActive]}
+          onPress={() => setShowOnlyActive(!showOnlyActive)}
+        >
+          <Text style={[styles.filterToggleText, showOnlyActive && styles.filterToggleTextActive]}>
+            {showOnlyActive ? "Activos" : "Todos"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Residents List */}
+      <FlatList
+        data={filteredResidents}
+        keyExtractor={(item) => String(item.resident_id)}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.adminGold}
+            colors={[C.adminGold]}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Users size={40} color={C.textMuted} />
+            <Text style={styles.emptyTitle}>No hay residentes registrados</Text>
+            <Text style={styles.emptySub}>
+              {search
+                ? "Ningún residente coincide con la búsqueda."
+                : "Agrega a los miembros de tu familia para habilitar su acceso facial."}
+            </Text>
+          </View>
+        }
+        renderItem={({ item }: { item: Resident }) => {
+          const initials = item.full_name
+            .split(" ")
+            .map((w: string) => w[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase();
+          const active = item.is_active;
+
+          return (
+            <View style={[styles.residentCard, !active && styles.residentCardInactive]}>
+              <View
+                style={[
+                  styles.avatar,
+                  {
+                    backgroundColor: active ? "rgba(16, 185, 129, 0.15)" : "rgba(148, 163, 184, 0.15)",
+                    borderColor: active ? "#10B981" : C.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.avatarText,
+                    { color: active ? "#10B981" : C.textMuted },
+                  ]}
+                >
+                  {initials}
+                </Text>
+              </View>
+
+              <View style={styles.residentInfo}>
+                <Text style={styles.residentName}>{item.full_name}</Text>
+                <Text style={styles.residentDoc}>
+                  Doc: {item.document_id || "No registrado"}
+                </Text>
+                <View style={styles.statusRow}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: active ? "#10B981" : "#EF4444" },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.statusText,
+                      { color: active ? "#10B981" : "#EF4444" },
+                    ]}
+                  >
+                    {active ? "Acceso Facial Habilitado" : "Acceso Desactivado"}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleActionBtn,
+                  active ? styles.toggleActionBtnDeactivate : styles.toggleActionBtnActivate,
+                ]}
+                onPress={() => {
+                  setSelectedResident(item);
+                  setStatusModalVisible(true);
+                }}
+              >
+                {active ? (
+                  <UserMinus size={16} color="#EF4444" />
+                ) : (
+                  <UserCheck size={16} color="#10B981" />
+                )}
+                <Text
+                  style={[
+                    styles.toggleActionText,
+                    { color: active ? "#EF4444" : "#10B981" },
+                  ]}
+                >
+                  {active ? "Desactivar" : "Activar"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }}
+      />
+
+      {/* Confirmation Modal */}
       <Modal
-        visible={rolesModalVisible}
+        visible={statusModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setRolesModalVisible(false)}
+        onRequestClose={() => setStatusModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Asignación de Roles</Text>
-                <Text style={styles.modalSubtitle} numberOfLines={1}>
-                  Usuario: {selectedUser?.full_name}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setRolesModalVisible(false)}>
-                <X size={20} color={C.text} />
-              </TouchableOpacity>
+              <AlertTriangle
+                size={24}
+                color={selectedResident?.is_active ? "#EF4444" : "#10B981"}
+              />
+              <Text style={styles.modalTitle}>
+                {selectedResident?.is_active
+                  ? "¿Desactivar Residente?"
+                  : "¿Reactivar Residente?"}
+              </Text>
             </View>
 
-            <Text style={styles.modalLabel}>ROLES DEL SISTEMA</Text>
-            <View style={{ gap: 12, marginVertical: 10 }}>
-              {availableRoles.map((role) => {
-                const hasRole = selectedUser?.roles.includes(role.name) ?? false;
-                const isUpdating = updatingRoleId === role.role_id;
-                
-                return (
-                  <View key={role.role_id} style={styles.roleToggleRow}>
-                    <View style={{ flex: 1, paddingRight: 10 }}>
-                      <Text style={styles.roleCheckName}>{role.name}</Text>
-                      {role.description ? (
-                        <Text style={styles.roleCheckDesc}>{role.description}</Text>
-                      ) : null}
-                    </View>
-                    {isUpdating ? (
-                      <ActivityIndicator size="small" color={C.adminGold} style={{ marginHorizontal: 10 }} />
-                    ) : (
-                      <Switch
-                        value={hasRole}
-                        onValueChange={() => toggleUserRole(role)}
-                        trackColor={{ false: C.borderStrong, true: `${C.adminGold}50` }}
-                        thumbColor={hasRole ? C.adminGold : C.textMuted}
-                      />
-                    )}
-                  </View>
-                );
-              })}
-              {availableRoles.length === 0 && (
-                <Text style={styles.noRolesTxt}>No hay roles activos disponibles.</Text>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.cancelBtn, { marginTop: 20 }]}
-              onPress={() => setRolesModalVisible(false)}
-            >
-              <Text style={[styles.cancelTxt, { color: C.adminGold }]}>Listo</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODAL: NUEVO ROL */}
-      <Modal
-        visible={createRoleModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setCreateRoleModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nuevo Rol</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setCreateRoleModalVisible(false);
-                  setRoleName("");
-                  setRoleDesc("");
-                }}
-              >
-                <X size={20} color={C.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalLabel}>NOMBRE *</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="ej: supervisor"
-              placeholderTextColor={C.textMuted}
-              value={roleName}
-              onChangeText={setRoleName}
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.modalLabel}>DESCRIPCIÓN</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Describe las responsabilidades..."
-              placeholderTextColor={C.textMuted}
-              value={roleDesc}
-              onChangeText={setRoleDesc}
-              multiline
-            />
+            <Text style={styles.modalBody}>
+              {selectedResident?.is_active
+                ? `Al desactivar a ${selectedResident?.full_name}, el sistema biométrico en la puerta denegará automáticamente su acceso.`
+                : `Al activar a ${selectedResident?.full_name}, podrá ingresar inmediatamente mediante reconocimiento facial.`}
+            </Text>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.cancelBtn}
-                disabled={createRoleLoading}
-                onPress={() => {
-                  setCreateRoleModalVisible(false);
-                  setRoleName("");
-                  setRoleDesc("");
-                }}
+                style={styles.modalCancelBtn}
+                onPress={() => setStatusModalVisible(false)}
               >
-                <Text style={styles.cancelTxt}>Cancelar</Text>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
-                style={[styles.createBtn, createRoleLoading && { opacity: 0.6 }]}
-                disabled={createRoleLoading}
-                onPress={handleCreateRoleSubmit}
+                style={[
+                  styles.modalConfirmBtn,
+                  {
+                    backgroundColor: selectedResident?.is_active
+                      ? "#EF4444"
+                      : "#10B981",
+                  },
+                ]}
+                disabled={statusLoading}
+                onPress={handleToggleStatus}
               >
-                <LinearGradient
-                  colors={C.gradients.admin as any}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.createGrad}
-                >
-                  {createRoleLoading ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <Text style={styles.createTxt}>Crear rol</Text>
-                  )}
-                </LinearGradient>
+                {statusLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>
+                    {selectedResident?.is_active ? "Confirmar Desactivación" : "Confirmar Activación"}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -1118,295 +364,264 @@ export default function UsersScreen() {
   );
 }
 
-const getStyles = (C: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.background,
-    paddingHorizontal: 20,
-    paddingTop: 60,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  title: { color: C.text, fontSize: 20, fontWeight: "700", flex: 1 },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  filterBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  filterBtnActive: {
-    backgroundColor: `${C.adminGold}18`,
-    borderColor: `${C.adminGold}40`,
-  },
-  filterTxt: { color: C.textMuted, fontSize: 12, fontWeight: "600" },
-  filterTxtActive: { color: C.adminGold, fontWeight: "600" },
-  addBtn: { padding: 8, backgroundColor: `${C.adminGold}15`, borderRadius: 10 },
-  submenuActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-    gap: 12,
-  },
-  addBtnInline: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: `${C.adminGold}15`,
-    borderColor: `${C.adminGold}30`,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  addBtnInlineText: {
-    color: C.adminGold,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  
-  // Tabs styling
-  tabContainer: {
-    flexDirection: "row",
-    backgroundColor: C.surface,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 8,
-  },
-  tabButtonActive: {
-    backgroundColor: `${C.adminGold}15`,
-  },
-  tabButtonText: {
-    color: C.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  tabButtonTextActive: {
-    color: C.adminGold,
-  },
-
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: C.surface,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 46,
-    marginBottom: 20,
-  },
-  searchInput: { flex: 1, color: C.text, fontSize: 14 },
-  
-  userRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
-  },
-  userRowInactive: { opacity: 0.55 },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: `${C.adminGold}20`,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarInactive: { backgroundColor: `${C.textMuted}20` },
-  avatarText: { color: C.adminGold, fontWeight: "700", fontSize: 16 },
-  avatarTextInactive: { color: C.textMuted },
-  
-  userName: { color: C.text, fontSize: 15, fontWeight: "500" },
-  myUserTag: { color: C.adminGold, fontSize: 13, fontWeight: "400" },
-  textInactive: { color: C.textMuted },
-  userDoc: { color: C.textMuted, fontSize: 12, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  statusText: { fontSize: 11, fontWeight: "600" },
-  separator: { height: 1, backgroundColor: C.border },
-  empty: { alignItems: "center", paddingTop: 40 },
-  emptyTxt: { color: C.textSubtle, fontSize: 14 },
-
-  // System user roles badges
-  rolesContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 6,
-  },
-  roleBadge: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  roleBadgeTxt: {
-    color: C.adminGold,
-    fontSize: 10,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  noRolesTxt: {
-    color: C.textSubtle,
-    fontSize: 11,
-    fontStyle: "italic",
-    marginTop: 4,
-  },
-
-  actionsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  actionBtn: { padding: 8 },
-
-  // Role styles
-  roleRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-  roleRowInactive: { opacity: 0.55 },
-  roleIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  roleName: { color: C.text, fontSize: 15, fontWeight: "600", textTransform: "capitalize" },
-  roleDesc: { color: C.textMuted, fontSize: 12, marginTop: 2 },
-  roleActionTxt: { fontSize: 12, fontWeight: "600" },
-
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    backgroundColor: C.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
-  },
-  modalTitle: {
-    color: C.text,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  modalSubtitle: {
-    color: C.textMuted,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  modalLabel: {
-    color: "rgba(195,160,240,0.9)",
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 2,
-    marginBottom: 8,
-    marginTop: 10,
-  },
-  modalInput: {
-    backgroundColor: C.background,
-    borderWidth: 1,
-    borderColor: C.borderStrong,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: C.text,
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  rolesChecklist: {
-    maxHeight: 180,
-    backgroundColor: C.background,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.borderStrong,
-    padding: 10,
-    marginBottom: 16,
-    gap: 8,
-  },
-  roleCheckRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-  },
-  roleCheckRowSelected: {
-    backgroundColor: "rgba(255,255,255,0.03)",
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: C.borderStrong,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkboxSelected: {
-    backgroundColor: C.adminGold,
-    borderColor: C.adminGold,
-  },
-  roleCheckName: {
-    color: C.text,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "capitalize",
-  },
-  roleCheckDesc: {
-    color: C.textMuted,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  roleToggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: C.background,
-    borderColor: C.border,
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-  },
-
-  modalActions: { flexDirection: "row", gap: 12, marginTop: 8 },
-  cancelBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelTxt: { color: C.textMuted, fontSize: 15, fontWeight: "600" },
-  createBtn: { flex: 1, height: 48 },
-  createGrad: {
-    flex: 1,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  createTxt: { color: "white", fontSize: 15, fontWeight: "700" },
-});
+function getStyles(C: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.background,
+      paddingTop: 54,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 20,
+      marginBottom: 14,
+    },
+    screenTitle: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: C.text,
+    },
+    screenSubtitle: {
+      fontSize: 12,
+      color: C.adminGold,
+      fontWeight: "600",
+      marginTop: 2,
+    },
+    addBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: C.adminGold,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+    },
+    addBtnDisabled: {
+      opacity: 0.4,
+    },
+    addBtnText: {
+      color: "#0F172A",
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    suspendedBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: "rgba(245, 158, 11, 0.12)",
+      borderColor: "rgba(245, 158, 11, 0.3)",
+      borderWidth: 1,
+      marginHorizontal: 20,
+      marginBottom: 12,
+      padding: 10,
+      borderRadius: 12,
+    },
+    suspendedBannerText: {
+      flex: 1,
+      fontSize: 11,
+      color: "#F59E0B",
+      fontWeight: "600",
+    },
+    searchRow: {
+      flexDirection: "row",
+      gap: 10,
+      paddingHorizontal: 20,
+      marginBottom: 14,
+    },
+    searchBox: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: C.card,
+      borderColor: C.border,
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 42,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 13,
+      color: C.text,
+    },
+    filterToggle: {
+      paddingHorizontal: 14,
+      justifyContent: "center",
+      alignItems: "center",
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: C.border,
+      backgroundColor: C.card,
+    },
+    filterToggleActive: {
+      borderColor: C.adminGold,
+      backgroundColor: `${C.adminGold}15`,
+    },
+    filterToggleText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: C.textMuted,
+    },
+    filterToggleTextActive: {
+      color: C.adminGold,
+    },
+    listContent: {
+      paddingHorizontal: 20,
+      paddingBottom: 30,
+    },
+    residentCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: C.card,
+      borderColor: C.border,
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 10,
+    },
+    residentCardInactive: {
+      opacity: 0.65,
+    },
+    avatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 12,
+    },
+    avatarText: {
+      fontSize: 15,
+      fontWeight: "800",
+    },
+    residentInfo: {
+      flex: 1,
+    },
+    residentName: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: C.text,
+    },
+    residentDoc: {
+      fontSize: 11,
+      color: C.textMuted,
+      marginTop: 2,
+    },
+    statusRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      marginTop: 4,
+    },
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    statusText: {
+      fontSize: 10,
+      fontWeight: "600",
+    },
+    toggleActionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingVertical: 7,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+    },
+    toggleActionBtnDeactivate: {
+      backgroundColor: "rgba(239, 68, 68, 0.08)",
+      borderColor: "rgba(239, 68, 68, 0.25)",
+    },
+    toggleActionBtnActivate: {
+      backgroundColor: "rgba(16, 185, 129, 0.08)",
+      borderColor: "rgba(16, 185, 129, 0.25)",
+    },
+    toggleActionText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    emptyContainer: {
+      padding: 40,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    emptyTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: C.text,
+      marginTop: 12,
+    },
+    emptySub: {
+      fontSize: 12,
+      color: C.textMuted,
+      textAlign: "center",
+      marginTop: 6,
+      lineHeight: 18,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.7)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 24,
+    },
+    modalContent: {
+      width: "100%",
+      backgroundColor: C.card,
+      borderRadius: 20,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    modalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      marginBottom: 12,
+    },
+    modalTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: C.text,
+    },
+    modalBody: {
+      fontSize: 13,
+      color: C.textMuted,
+      lineHeight: 19,
+      marginBottom: 20,
+    },
+    modalActions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 10,
+    },
+    modalCancelBtn: {
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+      backgroundColor: "rgba(148, 163, 184, 0.15)",
+    },
+    modalCancelText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: C.text,
+    },
+    modalConfirmBtn: {
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+    },
+    modalConfirmText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: "#FFFFFF",
+    },
+  });
+}

@@ -28,14 +28,22 @@ class Recognize(Resource):
         if not frame_bytes_list:
             ns.abort(400, "No se recibieron frames")
 
-        hogar_id = request.headers.get("X-Hogar-Id") or request.args.get("hogar_id") or request.form.get("hogar_id") or 1
+        home_id = (
+            request.headers.get("X-Home-Id")
+            or request.headers.get("X-Hogar-Id")
+            or request.args.get("home_id")
+            or request.args.get("hogar_id")
+            or request.form.get("home_id")
+            or request.form.get("hogar_id")
+            or 1
+        )
         try:
-            hogar_id = int(hogar_id)
+            home_id = int(home_id)
         except (ValueError, TypeError):
-            hogar_id = 1
+            home_id = 1
 
         try:
-            result = recognize(frame_bytes_list, hogar_id)
+            result = recognize(frame_bytes_list, home_id)
             return result
         except Exception as e:
             import traceback

@@ -14,32 +14,32 @@ limiter = Limiter(
 )
 
 from api.routes.auth_ns      import ns as auth_ns
-from api.routes.usuario_ns   import ns as usuario_ns
+from api.routes.user_ns      import ns as user_ns
 from api.routes.role_ns      import ns as role_ns
-from api.routes.employee_ns  import ns as employee_ns
+from api.routes.resident_ns  import ns as resident_ns
 from api.routes.log_ns       import ns as log_ns
 from api.routes.alert_ns     import ns as alert_ns
 from api.routes.audit_ns     import ns as audit_ns
 from api.routes.recognize_ns import ns as recognize_ns
-from api.routes.hogar_ns     import ns as hogar_ns
+from api.routes.home_ns      import ns as home_ns
 
 api = Api(
     title="Sentinel Face API",
-    version="3.1",
-    description="Sistema de control de acceso biométrico con reconocimiento facial",
+    version="3.2",
+    description="Sistema de control de acceso biométrico con reconocimiento facial y arquitectura multi-hogar",
     doc="/swagger",
     prefix="/api",
 )
 
 api.add_namespace(auth_ns)
-api.add_namespace(usuario_ns)
+api.add_namespace(user_ns)
 api.add_namespace(role_ns)
-api.add_namespace(employee_ns)
+api.add_namespace(resident_ns)
 api.add_namespace(log_ns)
 api.add_namespace(alert_ns)
 api.add_namespace(audit_ns)
 api.add_namespace(recognize_ns)
-api.add_namespace(hogar_ns)
+api.add_namespace(home_ns)
 
 import jwt
 from flask_jwt_extended.exceptions import JWTExtendedException, NoAuthorizationError

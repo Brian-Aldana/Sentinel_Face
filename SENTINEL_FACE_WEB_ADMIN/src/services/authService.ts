@@ -5,11 +5,13 @@ export const authService = {
   async login(email: string, password: string): Promise<AuthUser> {
     const response = await api.post('/auth/login', { email, password });
     const user: AuthUser = {
-      usuario_id: response.data.usuario_id,
+      user_id: response.data.user_id || response.data.usuario_id,
+      usuario_id: response.data.usuario_id || response.data.user_id,
       name: response.data.name,
       email: response.data.email,
       roles: response.data.roles || [],
       access_token: response.data.access_token,
+      home: response.data.home,
     };
     localStorage.setItem('sentinel_token', user.access_token);
     localStorage.setItem('sentinel_user', JSON.stringify(user));
