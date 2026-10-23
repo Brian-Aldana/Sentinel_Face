@@ -1,5 +1,5 @@
-import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { api } from "../services/api";
@@ -57,7 +57,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       isAuthenticated: false,
-      isLoading: true,
+      isLoading: Platform.OS !== "web",
 
       hasRole: (role) => {
         const roles = get().user?.roles ?? [];
@@ -83,6 +83,10 @@ export const useAuthStore = create<AuthState>()(
         };
 
         set({ token: data.access_token, user, isAuthenticated: true });
+      },
+
+      logout: async () => {
+        set({ token: null, user: null, isAuthenticated: false });
       },
 
       refreshHome: async () => {
@@ -118,15 +122,15 @@ export const useAuthStore = create<AuthState>()(
           });
         }
       },
-
-      logout: async () => {
-        set({ token: null, user: null, isAuthenticated: false });
-      },
     }),
     {
       name: "sentinel-auth",
       storage: createJSONStorage(() => secureStorage),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          useAuthStore.setState({ isLoading: false });
+          return;
+        }
         if (state?.token) {
           if (isTokenExpired(state.token)) {
             useAuthStore.setState({
