@@ -17,7 +17,7 @@ export default function ProfileScreen() {
   const C = useThemeColors();
   const styles = React.useMemo(() => getStyles(C), [C]);
   const user = useAuthStore((s) => s.user);
-  const hogar = useAuthStore((s) => s.hogar);
+  const home = user?.home;
   const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
 
@@ -91,18 +91,18 @@ export default function ProfileScreen() {
         <Text style={styles.sectionHeading}>MI HOGAR (SUSCRIPCIÓN SAAS)</Text>
         <View style={styles.infoCard}>
           {[
-            { label: "Titular", value: hogar?.nombre_titular ?? "—" },
-            { label: "Código Hogar", value: hogar?.codigo_hogar ?? "—" },
-            { label: "Estado Servicio", value: hogar?.estado_servicio ?? "ACTIVO" },
-            ...(hogar?.motivo_suspension ? [{ label: "Motivo Suspensión", value: hogar.motivo_suspension }] : []),
-            { label: "Límite Personas", value: `${hogar?.limite_personas ?? 10} permitidas` },
-            { label: "Límite Cámaras", value: `${hogar?.limite_camaras ?? 2} permitidas` },
-            { label: "Dirección", value: hogar?.direccion ?? "—" },
-            { label: "Teléfono", value: hogar?.telefono ?? "—" },
+            { label: "Titular", value: home?.owner_name ?? "—" },
+            { label: "Código Hogar", value: home?.home_code ?? "—" },
+            { label: "Estado Servicio", value: home?.service_status ?? "ACTIVE" },
+            ...(home?.suspension_reason ? [{ label: "Motivo Suspensión", value: home.suspension_reason }] : []),
+            { label: "Límite Personas", value: `${home?.max_residents ?? 10} permitidas` },
+            { label: "Límite Cámaras", value: `${home?.max_cameras ?? 2} permitidas` },
+            { label: "Dirección", value: home?.address ?? "—" },
+            { label: "Teléfono", value: home?.phone ?? "—" },
           ].map((item, i) => (
             <View key={i} style={[styles.infoRow, i > 0 && styles.rowDivider]}>
               <Text style={styles.infoLabel}>{item.label}</Text>
-              <Text style={[styles.infoValue, item.label === "Estado Servicio" && { color: hogar?.estado_servicio === "SUSPENDIDO" || hogar?.estado_servicio === "DENEGADO" ? C.redAlert : C.greenNeon, fontWeight: "700" }]}>
+              <Text style={[styles.infoValue, item.label === "Estado Servicio" && { color: home?.service_status === "SUSPENDED" || home?.service_status === "DENIED" ? C.redAlert : C.greenNeon, fontWeight: "700" }]}>
                 {item.value}
               </Text>
             </View>
