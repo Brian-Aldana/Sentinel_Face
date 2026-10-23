@@ -58,19 +58,24 @@ export default function LoginScreen() {
   }
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError("Ingresa tus credenciales.");
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    if (!cleanEmail || !cleanPass) {
+      setError("Por favor ingresa tu correo y contraseña.");
       return;
     }
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
+      await login(cleanEmail, cleanPass);
       router.replace("/(admin)/dashboard");
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ?? e.message ?? "Credenciales inválidas.",
-      );
+      const msg =
+        e?.response?.data?.message ??
+        e?.message ??
+        "No se pudo conectar con el servidor o las credenciales son incorrectas.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -121,9 +126,13 @@ export default function LoginScreen() {
                   placeholderTextColor="rgba(255,255,255,0.2)"
                   style={styles.input}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(val) => {
+                    setEmail(val);
+                    if (error) setError("");
+                  }}
                   autoCapitalize="none"
                   keyboardType="email-address"
+                  returnKeyType="next"
                 />
               </View>
             </View>
@@ -142,7 +151,12 @@ export default function LoginScreen() {
                   secureTextEntry={!showPass}
                   style={styles.input}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(val) => {
+                    setPassword(val);
+                    if (error) setError("");
+                  }}
+                  returnKeyType="go"
+                  onSubmitEditing={handleLogin}
                 />
                 <TouchableOpacity onPress={() => setShowPass((p) => !p)}>
                   {showPass ? (
@@ -270,6 +284,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 12,
     textAlign: "center",
+    lineHeight: 18,
   },
   button: { width: "100%", height: 58, marginTop: 10 },
   buttonGradient: { flex: 1, borderRadius: 15, justifyContent: "center" },
