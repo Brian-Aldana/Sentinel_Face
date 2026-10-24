@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "APP_MOVIL_SENTINEL_FACE",
+    "name": "Sentinel Face",
     "slug": "APP_MOVIL_SENTINEL_FACE",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,6 +10,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.sentinelface.mobile",
       "predictiveBackGestureEnabled": false
     },
     "web": {
