@@ -4,7 +4,7 @@ import { Alert, Platform } from "react-native";
 export const BASE_URL =
   Platform.OS === "web"
     ? (process.env.EXPO_PUBLIC_WEB_API_URL ?? "http://localhost:5000/api")
-    : (process.env.EXPO_PUBLIC_API_URL ?? "http://147.182.134.174:5000/api");
+    : (process.env.EXPO_PUBLIC_API_URL ?? "http://104.248.120.12:5000/api");
 
 export const TOKEN_KEY = "sentinel_access_token";
 
