@@ -48,6 +48,19 @@ services:
     networks:
       - sentinel_net
 
+  web_admin:
+    build:
+      context: ./SENTINEL_FACE_WEB_ADMIN
+      dockerfile: Dockerfile
+    container_name: sentinel_face_web_admin
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${WEB_PORT:-80}:80"
+    networks:
+      - sentinel_net
+
 volumes:
   db_data:
     driver: local

@@ -1,3 +1,24 @@
+def _get_model_path() -> str:
+    import os
+    import urllib.request
+    primary = "/root/face_landmarker.task"
+    if os.path.exists(primary):
+        return primary
+    local = os.path.join(os.path.dirname(__file__), "models", "face_landmarker.task")
+    if os.path.exists(local):
+        return local
+    cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "sentinel_face")
+    os.makedirs(cache_dir, exist_ok=True)
+    fallback = os.path.join(cache_dir, "face_landmarker.task")
+    if not os.path.exists(fallback):
+        url = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
+        try:
+            urllib.request.urlretrieve(url, fallback)
+        except Exception:
+            return primary
+    return fallback
+
+
 import cv2
 import numpy as np
 
@@ -26,10 +47,7 @@ def detect_blink_in_sequence(frames: list) -> bool:
         import urllib.request
         import os
 
-        model_path = "/root/face_landmarker.task"
-        if not os.path.exists(model_path):
-            url = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
-            urllib.request.urlretrieve(url, model_path)
+        model_path = _get_model_path()
 
         options = FaceLandmarkerOptions(
             base_options=mp_python.BaseOptions(model_asset_path=model_path),
@@ -87,10 +105,7 @@ def capture_and_detect(camera_index: int = 0, timeout_seconds: int = 10):
         import urllib.request
         import os
 
-        model_path = "/root/face_landmarker.task"
-        if not os.path.exists(model_path):
-            url = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
-            urllib.request.urlretrieve(url, model_path)
+        model_path = _get_model_path()
 
         options = FaceLandmarkerOptions(
             base_options=mp_python.BaseOptions(model_asset_path=model_path),
