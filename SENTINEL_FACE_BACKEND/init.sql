@@ -237,4 +237,64 @@ INSERT IGNORE INTO home_status_history (history_id, home_id, previous_status, ne
 (7, 5, 'ACTIVE', 'DENIED', 'Cancelación voluntaria por traslado de ciudad', 1, '2026-04-08 14:30:00'),
 (8, 6, NULL, 'TRIAL', 'Periodo de cortesía de 30 días para evaluación', 1, '2026-04-01 10:00:00');
 
+-- ── 7. ACCESS LOGS ───────────────────────────────────────────
+INSERT INTO access_logs (log_id, home_id, resident_id, access_result, confidence, liveness, event_time) VALUES
+-- Today's accesses
+(1, 1, 1, 'GRANTED', 0.94, 'REAL', DATE_SUB(NOW(), INTERVAL 25 MINUTE)),
+(2, 1, 2, 'GRANTED', 0.91, 'REAL', DATE_SUB(NOW(), INTERVAL 1 HOUR)),
+(3, 2, 3, 'GRANTED', 0.96, 'REAL', DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(4, 2, NULL, 'DENIED', 0.12, 'SPOOFING', DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(5, 4, 7, 'GRANTED', 0.89, 'REAL', DATE_SUB(NOW(), INTERVAL 4 HOUR)),
+(6, 6, 11, 'GRANTED', 0.93, 'REAL', DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(7, 4, NULL, 'DENIED', 0.35, 'REAL', DATE_SUB(NOW(), INTERVAL 6 HOUR)),
+
+-- Yesterday
+(8, 1, 1, 'GRANTED', 0.95, 'REAL', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(9, 1, 2, 'GRANTED', 0.88, 'REAL', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(10, 2, 4, 'GRANTED', 0.92, 'REAL', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(11, 3, 5, 'DENIED', 0.87, 'REAL', DATE_SUB(NOW(), INTERVAL 1 DAY)), -- Suspended home
+(12, 4, 8, 'GRANTED', 0.91, 'REAL', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(13, 1, NULL, 'DENIED', 0.05, 'SPOOFING', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+
+-- 2 days ago
+(14, 2, 3, 'GRANTED', 0.97, 'REAL', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(15, 4, 9, 'GRANTED', 0.90, 'REAL', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(16, 6, 12, 'GRANTED', 0.86, 'REAL', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(17, 2, NULL, 'DENIED', 0.22, 'REAL', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+
+-- 3 days ago
+(18, 1, 1, 'GRANTED', 0.93, 'REAL', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(19, 4, 7, 'GRANTED', 0.95, 'REAL', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(20, 4, NULL, 'DENIED', 0.18, 'SPOOFING', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+
+-- 4 to 6 days ago
+(21, 2, 4, 'GRANTED', 0.94, 'REAL', DATE_SUB(NOW(), INTERVAL 4 DAY)),
+(22, 1, 2, 'GRANTED', 0.89, 'REAL', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(23, 6, 11, 'GRANTED', 0.92, 'REAL', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(24, 1, 1, 'GRANTED', 0.96, 'REAL', DATE_SUB(NOW(), INTERVAL 6 DAY)),
+(25, 4, 8, 'GRANTED', 0.90, 'REAL', DATE_SUB(NOW(), INTERVAL 6 DAY));
+
+-- ── 8. SECURITY ALERTS ───────────────────────────────────────
+INSERT INTO security_alerts (alert_id, home_id, log_id, alert_type, severity, description, resolved, resolved_by, resolved_at, created_at) VALUES
+(1, 2, 4, 'SPOOFING_ATTEMPT', 'HIGH', 'Intento de suplantación con fotografía en pantalla de celular detectado en cámara principal', 0, NULL, NULL, DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(2, 4, 7, 'UNKNOWN_FACE', 'LOW', 'Rostro no identificado intentó ingresar en horario nocturno', 0, NULL, NULL, DATE_SUB(NOW(), INTERVAL 6 HOUR)),
+(3, 1, 13, 'SPOOFING_ATTEMPT', 'HIGH', 'Fotografía impresa detectada frente al lente de la cámara del acceso', 1, 1, DATE_SUB(NOW(), INTERVAL 20 HOUR), DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(4, 3, 11, 'FORCED_ACCESS', 'MEDIUM', 'Intento de ingreso en hogar con servicio suspendido por mora', 1, 1, DATE_SUB(NOW(), INTERVAL 18 HOUR), DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(5, 4, 20, 'SPOOFING_ATTEMPT', 'HIGH', 'Fallo en prueba de parpadeo y textura facial en cámara de patio', 1, 1, DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(6, 6, 17, 'UNKNOWN_FACE', 'LOW', 'Visitante desconocido en periodo de prueba', 0, NULL, NULL, DATE_SUB(NOW(), INTERVAL 2 DAY));
+
+-- ── 9. AUDIT LOG ─────────────────────────────────────────────
+INSERT INTO audit_log (audit_id, home_id, user_id, action, target_table, target_id, detail, ip_address, created_at) VALUES
+(1, 1, 1, 'CREATE_HOME', 'homes', 1, '{"home_code": "HOG-001", "owner_name": "Familia Aldana Sánchez"}', '192.168.1.10', '2026-03-01 08:00:00'),
+(2, 2, 1, 'CREATE_HOME', 'homes', 2, '{"home_code": "HOG-002", "owner_name": "Familia Díaz Rodríguez"}', '192.168.1.10', '2026-03-05 09:30:00'),
+(3, 3, 1, 'CREATE_HOME', 'homes', 3, '{"home_code": "HOG-003", "owner_name": "Residencia Gómez Pineda"}', '192.168.1.10', '2026-03-10 11:15:00'),
+(4, 4, 1, 'CREATE_HOME', 'homes', 4, '{"home_code": "HOG-004", "owner_name": "Familia Martínez Castro"}', '192.168.1.10', '2026-03-15 14:00:00'),
+(5, 5, 1, 'CREATE_HOME', 'homes', 5, '{"home_code": "HOG-005", "owner_name": "Familia Romero Vargas"}', '192.168.1.10', '2026-03-20 16:45:00'),
+(6, 6, 1, 'CREATE_HOME', 'homes', 6, '{"home_code": "HOG-006", "owner_name": "Residencia Torres Beltrán"}', '192.168.1.10', '2026-04-01 10:00:00'),
+(7, 3, 1, 'SET_HOME_STATUS_SUSPENDED', 'homes', 3, '{"new_status": "SUSPENDED", "reason": "Mora de 2 meses en el pago de servicio"}', '192.168.1.10', '2026-04-05 09:00:00'),
+(8, 5, 1, 'SET_HOME_STATUS_DENIED', 'homes', 5, '{"new_status": "DENIED", "reason": "Cancelación voluntaria por traslado de ciudad"}', '192.168.1.10', '2026-04-08 14:30:00'),
+(9, 2, 1, 'RESOLVE_ALERT', 'security_alerts', 3, '{"result": "Falsa alarma descartada con el propietario"}', '192.168.1.10', '2026-04-10 16:00:00'),
+(10, 1, 1, 'CHANGE_PASSWORD', 'users', 1, '{"admin": "Super Administrador"}', '192.168.1.10', '2026-04-12 11:20:00');
+
+
 SET FOREIGN_KEY_CHECKS = 1;
