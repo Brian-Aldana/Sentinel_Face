@@ -1,5 +1,5 @@
-import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { api } from "../services/api";
@@ -85,12 +85,12 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       isAuthenticated: false,
-      isLoading: true,
+      isLoading: Platform.OS !== "web",
 
       hasRole: (role) => {
         const roles = get().user?.roles ?? [];
-        if (role === "home_admin") {
-          return roles.includes("home_admin") || roles.includes("admin");
+        if (role === "home_admin" || role === "hogar_admin") {
+          return roles.includes("home_admin") || roles.includes("hogar_admin") || roles.includes("admin");
         }
         return roles.includes(role);
       },
@@ -100,8 +100,8 @@ export const useAuthStore = create<AuthState>()(
         if (!data.success) throw new Error("Credenciales inválidas.");
 
         const user: AuthUser = {
-          id: String(data.user_id),
-          user_id: Number(data.user_id),
+          id: String(data.user_id || data.usuario_id),
+          user_id: Number(data.user_id || data.usuario_id),
           name: data.name,
           email: data.email,
           roles: data.roles ?? [],
@@ -153,7 +153,11 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "sentinel-auth",
       storage: createJSONStorage(() => secureStorage),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          useAuthStore.setState({ isLoading: false });
+          return;
+        }
         if (state?.token) {
           if (isTokenExpired(state.token)) {
             useAuthStore.setState({

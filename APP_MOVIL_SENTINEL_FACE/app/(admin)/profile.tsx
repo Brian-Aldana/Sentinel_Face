@@ -17,6 +17,7 @@ export default function ProfileScreen() {
   const C = useThemeColors();
   const styles = React.useMemo(() => getStyles(C), [C]);
   const user = useAuthStore((s) => s.user);
+  const home = user?.home;
   const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
 
@@ -73,6 +74,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <Text style={styles.sectionHeading}>DATOS DE LA CUENTA</Text>
         <View style={styles.infoCard}>
           {[
             { label: "ID de usuario", value: user?.id ?? "—" },
@@ -82,6 +84,27 @@ export default function ProfileScreen() {
             <View key={i} style={[styles.infoRow, i > 0 && styles.rowDivider]}>
               <Text style={styles.infoLabel}>{item.label}</Text>
               <Text style={styles.infoValue}>{item.value}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.sectionHeading}>MI HOGAR (SUSCRIPCIÓN SAAS)</Text>
+        <View style={styles.infoCard}>
+          {[
+            { label: "Titular", value: home?.owner_name ?? "—" },
+            { label: "Código Hogar", value: home?.home_code ?? "—" },
+            { label: "Estado Servicio", value: home?.service_status ?? "ACTIVE" },
+            ...(home?.suspension_reason ? [{ label: "Motivo Suspensión", value: home.suspension_reason }] : []),
+            { label: "Límite Personas", value: `${home?.max_residents ?? 10} permitidas` },
+            { label: "Límite Cámaras", value: `${home?.max_cameras ?? 2} permitidas` },
+            { label: "Dirección", value: home?.address ?? "—" },
+            { label: "Teléfono", value: home?.phone ?? "—" },
+          ].map((item, i) => (
+            <View key={i} style={[styles.infoRow, i > 0 && styles.rowDivider]}>
+              <Text style={styles.infoLabel}>{item.label}</Text>
+              <Text style={[styles.infoValue, item.label === "Estado Servicio" && { color: home?.service_status === "SUSPENDED" || home?.service_status === "DENIED" ? C.redAlert : C.greenNeon, fontWeight: "700" }]}>
+                {item.value}
+              </Text>
             </View>
           ))}
         </View>
@@ -152,12 +175,20 @@ const getStyles = (C: any) => StyleSheet.create({
     fontWeight: "700",
     textTransform: "capitalize",
   },
+  sectionHeading: {
+    color: C.textMuted,
+    fontSize: 11,
+    letterSpacing: 2,
+    fontWeight: "600",
+    marginBottom: 10,
+    marginTop: 8,
+  },
   infoCard: {
     backgroundColor: C.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   infoRow: {
     flexDirection: "row",

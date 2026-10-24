@@ -1,10 +1,9 @@
 import axios from "axios";
-import * as SecureStore from "expo-secure-store";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 
 export const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
-  "http://10.157.31.11:5000/api";
+  (Platform.OS === "web" ? "http://localhost:5000/api" : "http://10.157.31.11:5000/api");
 
 export const TOKEN_KEY = "sentinel_access_token";
 
@@ -113,6 +112,10 @@ export const api = {
   // Hogar / Tenant
   getMyHome: () => client.get("/homes/my-home"),
   getHome: (id: number) => client.get(`/homes/${id}`),
+
+  // Compatibility aliases (SaaS / legacy naming)
+  getMiHogar: () => client.get("/homes/my-home"),
+  getPersonas: (homeId?: number) => client.get("/residents", { params: homeId ? { home_id: homeId } : undefined }),
 
   // Residentes (Authorized Residents)
   getResidents: () => client.get("/residents"),

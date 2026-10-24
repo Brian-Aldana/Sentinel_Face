@@ -59,6 +59,29 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    // Validación de estado de servicio SaaS
+    const home = user?.home;
+    if (home?.service_status === "SUSPENDED" || home?.service_status === "DENIED") {
+      customAlert(
+        "Servicio restringido",
+        `No es posible registrar personas mientras el servicio del hogar esté ${home.service_status === "SUSPENDED" ? "suspendido" : "denegado"}.\n\nMotivo: "${home.suspension_reason || 'Contacta al proveedor'}"`
+      );
+      return;
+    }
+
+    // Validación de cupo máximo del plan SaaS
+    if (
+      home?.total_residents !== undefined &&
+      home?.max_residents !== undefined &&
+      home.total_residents >= home.max_residents
+    ) {
+      customAlert(
+        "Límite de plan alcanzado",
+        `Tu hogar ha alcanzado el límite de ${home.max_residents} personas autorizadas permitidas. Comunícate con Sentinel Face para ampliar tu suscripción.`
+      );
+      return;
+    }
+
     if (!name.trim()) {
       customAlert("Campo requerido", "Ingresa el nombre completo.");
       return;
@@ -66,7 +89,7 @@ export default function RegisterScreen() {
     if (!photoUri) {
       customAlert(
         "Foto requerida",
-        "Captura o selecciona una foto del usuario.",
+        "Captura o selecciona una foto clara y frontal del rostro.",
       );
       return;
     }

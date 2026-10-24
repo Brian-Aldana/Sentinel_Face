@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, View } from "react-native";
+import React, { useEffect } from "react";
+import { ActivityIndicator, Platform, View } from "react-native";
 import "react-native-reanimated";
 import { Colors } from "../constants/theme";
 import { useAuthStore } from "../store/authStore";
@@ -10,6 +11,16 @@ import CustomAlert from "../components/ui/CustomAlert";
 function RootNavigator() {
   const isLoading = useAuthStore((s) => s.isLoading);
   const darkMode = useSettingsStore((s) => s.darkMode);
+
+  useEffect(() => {
+    // Si estamos en web o si la rehidratación tarda más de 200ms, liberar la pantalla de carga
+    const timer = setTimeout(() => {
+      if (useAuthStore.getState().isLoading) {
+        useAuthStore.setState({ isLoading: false });
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (isLoading) {
     return (
