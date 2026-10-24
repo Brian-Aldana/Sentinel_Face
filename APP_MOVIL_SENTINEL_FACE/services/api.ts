@@ -2,8 +2,9 @@ import axios from "axios";
 import { Alert, Platform } from "react-native";
 
 export const BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (Platform.OS === "web" ? "http://localhost:5000/api" : "http://10.157.31.11:5000/api");
+  Platform.OS === "web"
+    ? (process.env.EXPO_PUBLIC_WEB_API_URL ?? "http://localhost:5000/api")
+    : (process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.18.46:5000/api");
 
 export const TOKEN_KEY = "sentinel_access_token";
 
