@@ -46,7 +46,8 @@ SENTINEL_FACE/
 │   ├── face_logic.py              # Extracción de embeddings faciales de 512D con InsightFace (buffalo_l)
 │   ├── init.sql                   # Esquema de base de datos MariaDB (8 tablas + seeds de prueba)
 │   ├── Dockerfile                 # Contenedor optimizado con pre-descarga de modelos ONNX
-│   └── gunicorn.conf.py           # Configuración del servidor de producción WSGI Gunicorn
+│   ├── gunicorn.conf.py           # Configuración del servidor de producción WSGI Gunicorn
+│   └── tests/                     # Suite de pruebas unitarias automatizadas con Pytest (18 pruebas)
 │
 ├── SENTINEL_FACE_WEB_ADMIN/       # Plataforma Web Central de Administración del Proveedor
 │   ├── src/pages/                 # Dashboard, Gestión de Hogares, Estadísticas, Alertas, Auditoría
@@ -128,6 +129,31 @@ npx eas-cli build -p android --profile preview
 ```
 
 El build genera un archivo `.apk` autónomo con la URL segura de producción `https://sentinel-face.duckdns.org/api` inyectada de fábrica.
+
+---
+
+## 🧪 Batería de Pruebas Automatizadas (Pytest)
+
+El backend incorpora una batería de **18 pruebas unitarias automatizadas** ubicada en [`SENTINEL_FACE_BACKEND/tests/`](SENTINEL_FACE_BACKEND/tests/) ejecutadas con `pytest`. La suite valida la seguridad criptográfica, las políticas SaaS multi-tenant y los algoritmos matemáticos de visión artificial:
+
+| Módulo de Pruebas | Archivo | Casos de Prueba | Cobertura Técnica Clave |
+| :--- | :--- | :---: | :--- |
+| **Autenticación y RBAC** | [`test_unit_auth.py`](SENTINEL_FACE_BACKEND/tests/test_unit_auth.py) | 8 | Hashing scrypt/werkzeug, estructura de claims en JWT (`user_id`, `home_id`, `roles`), decoradores de seguridad `@admin_required` y `@home_admin_required` (permitidos vs HTTP 403), y respuestas controladas en login (400 por payload incompleto y 401 por credenciales inválidas). |
+| **Reglas de Negocio SaaS** | [`test_unit_business_rules.py`](SENTINEL_FACE_BACKEND/tests/test_unit_business_rules.py) | 5 | Sanitización de tipos Decimal y Datetime a JSON, activación/desactivación según suscripción (`ACTIVE`/`TRIAL` vs `SUSPENDED`/`DENIED`), contadores por defecto, cupos de residentes (`max_residents`) y aislamiento de datos multi-tenant por hogar. |
+| **Visión Artificial y Liveness** | [`test_unit_face_liveness.py`](SENTINEL_FACE_BACKEND/tests/test_unit_face_liveness.py) | 5 | Fórmula geométrica de Eye Aspect Ratio (EAR) para detección activa de parpadeo ($\ge 0.22$ vs $< 0.22$), guarda contra división por cero en oclusiones faciales, fallback tolerante a fallos del detector pasivo (`Módulo OFF`) y cálculo matricial de similitud coseno (umbral ArcFace 0.50). |
+
+### Ejecución de Pruebas:
+
+```bash
+# Opción 1: En el contenedor Docker del backend (producción)
+docker exec sentinel_face_backend uv run pytest -v
+
+# Opción 2: En entorno local con uv (o pytest directo)
+cd SENTINEL_FACE_BACKEND
+uv run --with pytest pytest -v
+```
+
+> **Resultado:** 18/18 pruebas aprobadas (100% de éxito) en menos de 1.5 segundos.
 
 ---
 

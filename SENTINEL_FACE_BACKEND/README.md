@@ -114,6 +114,11 @@ SENTINEL_FACE_BACKEND/
 ├── docker-compose.yml
 ├── pyproject.toml
 ├── .env.example
+├── tests/                  # Batería de 18 pruebas unitarias automatizadas (pytest)
+│   ├── conftest.py         # Configuración y fixtures de Flask y JWT
+│   ├── test_unit_auth.py   # Pruebas de autenticación y RBAC
+│   ├── test_unit_business_rules.py  # Pruebas de reglas SaaS y aislamiento
+│   └── test_unit_face_liveness.py   # Pruebas de visión artificial y liveness
 └── api/
     ├── __init__.py         # Flask app factory + registro de namespaces
     ├── models/             # Capa de acceso a datos (queries SQL)
@@ -155,6 +160,28 @@ La documentación completa e interactiva está disponible en `http://localhost:5
 | `GET` | `/api/alerts` | Alertas de seguridad |
 | `PATCH` | `/api/alerts/{id}/resolve` | Resolver una alerta |
 | `GET` | `/api/audit` | Registros de auditoría |
+
+---
+
+## Pruebas automatizadas (pytest)
+
+La carpeta [`tests/`](tests/) contiene la batería de **18 pruebas unitarias automatizadas** que validan la seguridad, reglas de negocio y visión artificial:
+
+| Archivo | Casos | Enfoque de Pruebas |
+|---------|:-----:|--------------------|
+| [`tests/test_unit_auth.py`](tests/test_unit_auth.py) | 8 | Criptografía scrypt, claims JWT, decoradores `@admin_required` / `@home_admin_required` y validación de login (400/401). |
+| [`tests/test_unit_business_rules.py`](tests/test_unit_business_rules.py) | 5 | Serialización JSON, cálculo de estados de suscripción SaaS, cupos de residentes y aislamiento multi-tenant. |
+| [`tests/test_unit_face_liveness.py`](tests/test_unit_face_liveness.py) | 5 | Fórmula EAR de Soukupová & Čech para parpadeo, guarda de división por cero, tolerancia a fallos y similitud coseno ArcFace (0.50). |
+
+Para ejecutar las pruebas:
+
+```bash
+# Con uv (recomendado):
+uv run --with pytest pytest -v
+
+# O con pytest directamente en el entorno virtual:
+pytest -v
+```
 
 ---
 
